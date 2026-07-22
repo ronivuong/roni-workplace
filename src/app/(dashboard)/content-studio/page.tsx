@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Plus,
   Sparkles,
   FileText,
   Loader2,
@@ -12,19 +11,21 @@ import {
   Check,
   X,
   Trash2,
+  Eye,
+  Wand2,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -36,7 +37,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlatformPreview } from "@/components/content/platform-preview";
 import { CONTENT_STATUS_LABELS } from "@/lib/constants";
+import {
+  parseContentBody,
+  platformLabel,
+  type StructuredContent,
+} from "@/lib/content-formats";
 import { formatDate, cn } from "@/lib/utils";
 import { isLeaderOrAbove } from "@/lib/rbac";
 
@@ -54,28 +62,38 @@ type Content = {
   team: { id: string; name: string; color: string } | null;
 };
 
+const PLATFORMS = [
+  { value: "tiktok", label: "TikTok", hint: "Video dọc + script beats" },
+  { value: "instagram", label: "Instagram", hint: "Feed / carousel" },
+  { value: "facebook", label: "Facebook", hint: "Bài page" },
+  { value: "youtube", label: "YouTube", hint: "Title + mô tả" },
+  { value: "wordpress", label: "WordPress", hint: "Bài blog" },
+  { value: "blog", label: "Blog", hint: "Long-form" },
+  { value: "threads", label: "Threads", hint: "Thread ngắn" },
+];
+
+const PROMPT_EXAMPLES = [
+  "5 tips viết caption viral cho shop mỹ phẩm trên TikTok",
+  "Carousel Instagram: checklist content tuần cho agency",
+  "Bài blog SEO: xu hướng AI content 2026 cho SME Việt Nam",
+  "Script YouTube 8 phút review tai nghe true wireless",
+];
+
 export default function ContentStudioPage() {
   const { data: session } = useSession();
   const qc = useQueryClient();
   const leader = isLeaderOrAbove(session?.user?.role);
-  const [open, setOpen] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [filter, setFilter] = useState("all");
 
-  const [form, setForm] = useState({
-    title: "",
-    body: "",
-    type: "article",
-    platform: "blog",
-  });
-  const [aiForm, setAiForm] = useState({
-    topic: "",
-    type: "article",
-    platform: "tiktok",
-    tone: "chuyên nghiệp, gần gũi",
-  });
+  const [filter, setFilter] = useState("all");
+  const [generating, setGenerating] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [selected, setSelected] = useState<Content | null>(null);
+  const [livePreview, setLivePreview] = useState<StructuredContent | null>(null);
+
+  const [prompt, setPrompt] = useState("");
+  const [platform, setPlatform] = useState("tiktok");
+  const [type, setType] = useState("social");
+  const [tone, setTone] = useState("chuyên nghiệp, gần gũi, có emoji vừa phải");
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["contents", filter],
@@ -89,48 +107,51 @@ export default function ContentStudioPage() {
 
   const contents = data?.contents || [];
 
-  const createManual = async () => {
-    if (!form.title.trim()) {
-      toast.error("Nhập tiêu đề");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+  const activeStructured = useMemo(() => {
+    if (livePreview) return livePreview;
+    if (selected) {
+      return parseContentBody(selected.body, {
+        title: selected.title,
+        platform: selected.platform,
+        type: selected.type,
       });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "Lỗi");
-      toast.success("Đã tạo bản nháp");
-      setOpen(false);
-      setForm({ title: "", body: "", type: "article", platform: "blog" });
-      qc.invalidateQueries({ queryKey: ["contents"] });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Thất bại");
-    } finally {
-      setSaving(false);
     }
-  };
+    // empty state preview shell
+    return parseContentBody(null, {
+      title: "Preview sẽ hiện ở đây",
+      platform,
+      type,
+    });
+  }, [livePreview, selected, platform, type]);
 
-  const generateAi = async () => {
-    if (!aiForm.topic.trim()) {
-      toast.error("Nhập chủ đề");
+  const generate = async () => {
+    if (!prompt.trim()) {
+      toast.error("Nhập câu lệnh / brief cho AI");
       return;
     }
     setGenerating(true);
+    setSelected(null);
     try {
       const res = await fetch("/api/content/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(aiForm),
+        body: JSON.stringify({
+          topic: prompt,
+          platform,
+          type:
+            platform === "youtube" || platform === "tiktok"
+              ? "script"
+              : platform === "wordpress" || platform === "blog"
+                ? "article"
+                : type,
+          tone,
+        }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Lỗi");
+      setLivePreview(d.structured);
+      if (d.content) setSelected(d.content);
       toast.success(d.message || "Đã tạo nội dung");
-      setAiOpen(false);
-      setAiForm({ topic: "", type: "article", platform: "tiktok", tone: "chuyên nghiệp, gần gũi" });
       qc.invalidateQueries({ queryKey: ["contents"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Thất bại");
@@ -150,7 +171,7 @@ export default function ContentStudioPage() {
       toast.error(d.error || "Không cập nhật được");
       return;
     }
-    toast.success(`Đã chuyển sang «${CONTENT_STATUS_LABELS[status] || status}»`);
+    toast.success(`Đã chuyển «${CONTENT_STATUS_LABELS[status] || status}»`);
     qc.invalidateQueries({ queryKey: ["contents"] });
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
@@ -163,290 +184,375 @@ export default function ContentStudioPage() {
       return;
     }
     toast.success("Đã xóa");
+    if (selected?.id === id) {
+      setSelected(null);
+      setLivePreview(null);
+    }
     qc.invalidateQueries({ queryKey: ["contents"] });
   };
 
+  const openItem = (c: Content) => {
+    setSelected(c);
+    setLivePreview(
+      parseContentBody(c.body, {
+        title: c.title,
+        platform: c.platform,
+        type: c.type,
+      })
+    );
+  };
+
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader
         title="AI Content Studio"
-        description="Tạo, duyệt và quản lý nội dung — hỗ trợ AI hoặc viết thủ công."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Tạo thủ công
-            </Button>
-            <Button onClick={() => setAiOpen(true)}>
-              <Sparkles className="h-4 w-4" />
-              Tạo với AI
-            </Button>
-          </div>
-        }
+        description="Gõ brief → AI viết đúng format từng nền tảng → xem preview như đã đăng."
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {[
-          ["all", "Tất cả"],
-          ["DRAFT", "Nháp"],
-          ["IN_REVIEW", "Chờ duyệt"],
-          ["APPROVED", "Đã duyệt"],
-          ["PUBLISHED", "Đã đăng"],
-          ["SCHEDULED", "Lên lịch"],
-        ].map(([v, l]) => (
-          <Button
-            key={v}
-            size="sm"
-            variant={filter === v ? "default" : "outline"}
-            onClick={() => setFilter(v)}
-          >
-            {l}
-          </Button>
-        ))}
-      </div>
+      {/* Studio split layout */}
+      <div className="grid gap-4 xl:grid-cols-12">
+        {/* LEFT: Composer */}
+        <div className="xl:col-span-5 space-y-4">
+          <Card className="border-emerald-100 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-3 text-white">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Wand2 className="h-4 w-4" />
+                Tạo nội dung bằng AI
+              </div>
+              <p className="text-xs text-emerald-50 mt-0.5">
+                Chọn nền tảng trước — output & preview sẽ khớp kênh đó
+              </p>
+            </div>
+            <CardContent className="p-5 space-y-4">
+              <div className="grid gap-1.5">
+                <Label>Nền tảng xuất bản</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {PLATFORMS.map((p) => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => {
+                        setPlatform(p.value);
+                        if (!livePreview && !selected) {
+                          /* preview shell updates via platform state */
+                        }
+                      }}
+                      className={cn(
+                        "rounded-xl border px-2.5 py-2 text-left transition-all",
+                        platform === p.value
+                          ? "border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      )}
+                    >
+                      <p className="text-xs font-semibold text-slate-900">{p.label}</p>
+                      <p className="text-[10px] text-slate-500">{p.hint}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
+              <div className="grid gap-1.5">
+                <Label>Câu lệnh / brief cho AI</Label>
+                <Textarea
+                  rows={4}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="VD: Viết caption TikTok bán serum vitamin C, hook 3 giây, CTA comment 'MUỐN'..."
+                  className="resize-none text-sm"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {PROMPT_EXAMPLES.map((ex) => (
+                    <button
+                      key={ex}
+                      type="button"
+                      onClick={() => setPrompt(ex)}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] text-slate-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700"
+                    >
+                      {ex.length > 42 ? ex.slice(0, 40) + "…" : ex}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label>Định dạng</Label>
+                  <Select value={type} onValueChange={setType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="social">Social post</SelectItem>
+                      <SelectItem value="script">Script video</SelectItem>
+                      <SelectItem value="article">Bài viết</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Giọng văn</Label>
+                  <Input value={tone} onChange={(e) => setTone(e.target.value)} />
+                </div>
+              </div>
+
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={generate}
+                disabled={generating}
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    AI đang viết cho {platformLabel(platform)}...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Tạo & xem preview {platformLabel(platform)}
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Library */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-900">Thư viện nội dung</p>
+                <Tabs value={filter} onValueChange={setFilter}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="all" className="text-xs px-2 h-7">
+                      Tất cả
+                    </TabsTrigger>
+                    <TabsTrigger value="DRAFT" className="text-xs px-2 h-7">
+                      Nháp
+                    </TabsTrigger>
+                    <TabsTrigger value="IN_REVIEW" className="text-xs px-2 h-7">
+                      Duyệt
+                    </TabsTrigger>
+                    <TabsTrigger value="PUBLISHED" className="text-xs px-2 h-7">
+                      Đăng
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+
+              {isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-14 w-full" />
+                  <Skeleton className="h-14 w-full" />
+                </div>
+              ) : isError ? (
+                <div className="text-center py-6">
+                  <p className="text-sm text-red-600 mb-2">Không tải được</p>
+                  <Button size="sm" onClick={() => refetch()}>
+                    Thử lại
+                  </Button>
+                </div>
+              ) : contents.length === 0 ? (
+                <div className="flex flex-col items-center py-10 text-slate-400">
+                  <FileText className="h-8 w-8 mb-2" />
+                  <p className="text-sm">Chưa có nội dung</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                  {contents.map((c) => {
+                    const active = selected?.id === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => openItem(c)}
+                        className={cn(
+                          "w-full rounded-xl border p-3 text-left transition-all",
+                          active
+                            ? "border-emerald-300 bg-emerald-50/80 shadow-sm"
+                            : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium text-slate-900 line-clamp-1">
+                            {c.title}
+                          </p>
+                          <Badge variant="secondary" className="shrink-0 text-[10px]">
+                            {CONTENT_STATUS_LABELS[c.status] || c.status}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {platformLabel(c.platform || "blog")} · {c.author.name} ·{" "}
+                          {formatDate(c.updatedAt)}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+                          {c.status === "DRAFT" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px]"
+                              onClick={() => setStatus(c.id, "IN_REVIEW")}
+                            >
+                              <Send className="h-3 w-3" />
+                              Gửi duyệt
+                            </Button>
+                          )}
+                          {leader && c.status === "IN_REVIEW" && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="h-7 text-[11px]"
+                                onClick={() => setStatus(c.id, "APPROVED")}
+                              >
+                                <Check className="h-3 w-3" />
+                                Duyệt
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-7 text-[11px]"
+                                onClick={() => setStatus(c.id, "REJECTED")}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                          {["APPROVED", "SCHEDULED"].includes(c.status) && (
+                            <Button
+                              size="sm"
+                              className="h-7 text-[11px]"
+                              onClick={() => setStatus(c.id, "PUBLISHED")}
+                            >
+                              Đăng
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-[11px]"
+                            onClick={() => {
+                              openItem(c);
+                              setPreviewOpen(true);
+                            }}
+                          >
+                            <Eye className="h-3 w-3" />
+                            Full
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-[11px] text-red-500"
+                            onClick={() => remove(c.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      ) : isError ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="text-sm text-red-600 mb-3">Không tải được danh sách nội dung</p>
-            <Button onClick={() => refetch()}>Thử lại</Button>
-          </CardContent>
-        </Card>
-      ) : contents.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center py-16 text-slate-400">
-            <FileText className="h-10 w-10 mb-2" />
-            Chưa có nội dung — bấm «Tạo với AI» để bắt đầu
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {contents.map((c) => (
-            <Card key={c.id}>
-              <CardContent className="p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-slate-900">{c.title}</p>
-                      <Badge variant="secondary">
-                        {CONTENT_STATUS_LABELS[c.status] || c.status}
-                      </Badge>
-                      {c.platform && <Badge variant="outline">{c.platform}</Badge>}
-                      <Badge variant="outline">{c.type}</Badge>
-                    </div>
-                    {c.body && (
-                      <p className="mt-1 text-sm text-slate-500 line-clamp-2 whitespace-pre-wrap">
-                        {c.body}
-                      </p>
-                    )}
-                    <p className="mt-1 text-xs text-slate-400">
-                      {c.author.name}
-                      {c.team ? ` · ${c.team.name}` : ""} · {formatDate(c.updatedAt)}
-                      {c.views > 0 ? ` · ${c.views} views` : ""}
+
+        {/* RIGHT: Live platform preview */}
+        <div className="xl:col-span-7">
+          <Card className="sticky top-20 border-slate-200/80 bg-gradient-to-b from-slate-50 to-white min-h-[640px]">
+            <CardContent className="p-4 md:p-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
+                    <Smartphone className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Xem như đã xuất bản
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Mock UI {platformLabel(activeStructured.platform)} — không phải feed thật
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 shrink-0">
-                    {c.status === "DRAFT" && (
-                      <Button size="sm" variant="outline" onClick={() => setStatus(c.id, "IN_REVIEW")}>
-                        <Send className="h-3.5 w-3.5" />
-                        Gửi duyệt
-                      </Button>
-                    )}
-                    {leader && c.status === "IN_REVIEW" && (
-                      <>
-                        <Button size="sm" onClick={() => setStatus(c.id, "APPROVED")}>
-                          <Check className="h-3.5 w-3.5" />
-                          Duyệt
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => setStatus(c.id, "REJECTED")}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                          Từ chối
-                        </Button>
-                      </>
-                    )}
-                    {["APPROVED", "SCHEDULED"].includes(c.status) && (
-                      <Button size="sm" onClick={() => setStatus(c.id, "PUBLISHED")}>
-                        Đăng bài
-                      </Button>
-                    )}
-                    {c.status === "DRAFT" && (
-                      <Button size="sm" variant="outline" onClick={() => setStatus(c.id, "SCHEDULED")}>
-                        Lên lịch
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" className="text-red-500" onClick={() => remove(c.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                </div>
+                {(livePreview || selected) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPreviewOpen(true)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Phóng to
+                  </Button>
+                )}
+              </div>
+
+              {generating ? (
+                <div className="flex flex-col items-center justify-center py-24 text-slate-500">
+                  <Loader2 className="h-10 w-10 animate-spin text-emerald-500 mb-3" />
+                  <p className="text-sm font-medium">AI đang soạn cho {platformLabel(platform)}…</p>
+                  <p className="text-xs text-slate-400 mt-1">Hook · caption · hashtag · CTA</p>
+                </div>
+              ) : !livePreview && !selected ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                    <Sparkles className="h-8 w-8" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-700">
+                    Preview trực quan sẽ hiện tại đây
+                  </p>
+                  <p className="mt-1 max-w-sm text-xs text-slate-500">
+                    Chọn nền tảng bên trái, nhập brief, bấm tạo — bạn sẽ thấy bài như trên
+                    TikTok / Instagram / Facebook / YouTube / Blog.
+                  </p>
+                  <div className="mt-6 w-full opacity-60 pointer-events-none scale-95 origin-top">
+                    <PlatformPreview
+                      content={parseContentBody(null, {
+                        title: "Ví dụ preview " + platformLabel(platform),
+                        platform,
+                        type,
+                      })}
+                    />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              ) : (
+                <div className="animate-in fade-in duration-300">
+                  {/* Structured text panel */}
+                  <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 text-xs space-y-1.5">
+                    <p>
+                      <span className="font-semibold text-slate-500">Tiêu đề: </span>
+                      {activeStructured.title}
+                    </p>
+                    {activeStructured.hook && (
+                      <p>
+                        <span className="font-semibold text-slate-500">Hook: </span>
+                        {activeStructured.hook}
+                      </p>
+                    )}
+                    {activeStructured.cta && (
+                      <p>
+                        <span className="font-semibold text-slate-500">CTA: </span>
+                        {activeStructured.cta}
+                      </p>
+                    )}
+                    {!!activeStructured.hashtags?.length && (
+                      <p className="text-sky-600">{activeStructured.hashtags.join(" ")}</p>
+                    )}
+                  </div>
+                  <PlatformPreview content={activeStructured} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
+      </div>
 
-      {/* Manual create */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+      {/* Fullscreen-ish preview dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Tạo nội dung thủ công</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="grid gap-1.5">
-              <Label>Tiêu đề</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="Tiêu đề bài viết..."
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5">
-                <Label>Loại</Label>
-                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="article">Bài viết</SelectItem>
-                    <SelectItem value="script">Script</SelectItem>
-                    <SelectItem value="social">Social</SelectItem>
-                    <SelectItem value="video">Video</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Nền tảng</Label>
-                <Select
-                  value={form.platform}
-                  onValueChange={(v) => setForm({ ...form, platform: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="blog">Blog</SelectItem>
-                    <SelectItem value="tiktok">TikTok</SelectItem>
-                    <SelectItem value="facebook">Facebook</SelectItem>
-                    <SelectItem value="instagram">Instagram</SelectItem>
-                    <SelectItem value="youtube">YouTube</SelectItem>
-                    <SelectItem value="wordpress">WordPress</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Nội dung</Label>
-              <Textarea
-                rows={6}
-                value={form.body}
-                onChange={(e) => setForm({ ...form, body: e.target.value })}
-                placeholder="Nội dung..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={createManual} disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              Lưu nháp
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* AI generate */}
-      <Dialog open={aiOpen} onOpenChange={setAiOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-emerald-600" />
-              Tạo nội dung bằng AI
+            <DialogTitle>
+              Preview {platformLabel(activeStructured.platform)} — như đã xuất bản
             </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="grid gap-1.5">
-              <Label>Chủ đề / brief</Label>
-              <Textarea
-                rows={3}
-                value={aiForm.topic}
-                onChange={(e) => setAiForm({ ...aiForm, topic: e.target.value })}
-                placeholder="VD: 5 tips viết caption viral TikTok cho shop mỹ phẩm"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5">
-                <Label>Loại</Label>
-                <Select
-                  value={aiForm.type}
-                  onValueChange={(v) => setAiForm({ ...aiForm, type: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="article">Bài viết</SelectItem>
-                    <SelectItem value="script">Script video</SelectItem>
-                    <SelectItem value="social">Caption social</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Nền tảng</Label>
-                <Select
-                  value={aiForm.platform}
-                  onValueChange={(v) => setAiForm({ ...aiForm, platform: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tiktok">TikTok</SelectItem>
-                    <SelectItem value="facebook">Facebook</SelectItem>
-                    <SelectItem value="instagram">Instagram</SelectItem>
-                    <SelectItem value="blog">Blog</SelectItem>
-                    <SelectItem value="youtube">YouTube</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Giọng văn</Label>
-              <Input
-                value={aiForm.tone}
-                onChange={(e) => setAiForm({ ...aiForm, tone: e.target.value })}
-              />
-            </div>
-            <p className={cn("text-xs text-slate-500")}>
-              Có API Key (Settings) → sinh bằng AI. Chưa có key → tạo template tiếng Việt sẵn
-              để bạn chỉnh.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAiOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={generateAi} disabled={generating}>
-              {generating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {generating ? "Đang tạo..." : "Tạo ngay"}
-            </Button>
-          </DialogFooter>
+          <PlatformPreview content={activeStructured} />
         </DialogContent>
       </Dialog>
     </div>

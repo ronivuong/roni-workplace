@@ -1,11 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  buildPlatformTemplate,
+  serializeContent,
+  type StructuredContent,
+  pickEmoji,
+  pickGradient,
+} from "@/lib/content-formats";
 
-/**
- * Generate content draft with AI (xAI) when key available,
- * otherwise produce a structured Vietnamese template so the feature always works.
- */
+function platformPrompt(platform: string, topic: string, type: string, tone: string) {
+  const common = `Chủ đề: ${topic}
+Loại: ${type}
+Giọng: ${tone}
+Nền tảng: ${platform}
+Viết tiếng Việt tự nhiên, đúng văn hoá creator VN.`;
+
+  const schemas: Record<string, string> = {
+    tiktok: `Trả JSON:
+{"title":"max 60 ký tự","hook":"câu mở 3s","caption":"caption feed","body":"3 tips ngắn xuống dòng","beats":[{"label":"...","text":"...","seconds":"0-3s"}],"hashtags":["#fyp",...],"cta":"..."}`,
+    instagram: `Trả JSON:
+{"title":"...","hook":"dòng cover","caption":"caption có emoji + xuống dòng","body":"mô tả carousel slide","hashtags":[...],"cta":"..."}`,
+    facebook: `Trả JSON:
+{"title":"...","hook":"...","body":"bài post Facebook đầy đủ, có đoạn mở-thân-CTA","hashtags":[...],"cta":"..."}`,
+    youtube: `Trả JSON:
+{"title":"tiêu đề SEO YouTube","hook":"dòng đầu description","body":"mô tả + timestamps","beats":[{"label":"Intro","text":"...","seconds":"0:00"}],"hashtags":[...],"cta":"..."}`,
+    wordpress: `Trả JSON:
+{"title":"H1 bài blog","hook":"lead paragraph","body":"markdown bài viết đầy đủ ## headings","hashtags":[],"cta":"..."}`,
+    blog: `Trả JSON:
+{"title":"H1","hook":"tóm tắt","body":"markdown đầy đủ","hashtags":[],"cta":"..."}`,
+    threads: `Trả JSON:
+{"title":"...","caption":"thread ngắn 1-2 đoạn","body":"tóm tắt","hashtags":[...],"cta":"..."}`,
+  };
+
+  return `${common}\n${schemas[platform] || schemas.blog}\nChỉ trả JSON thuần, không markdown fence.`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
@@ -15,12 +45,12 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const topic = String(body.topic || "").trim();
-    const type = body.type || "article";
-    const platform = body.platform || "blog";
+    const type = body.type || "social";
+    const platform = (body.platform || "tiktok").toLowerCase();
     const tone = body.tone || "chuyên nghiệp, gần gũi";
 
     if (!topic) {
-      return NextResponse.json({ error: "Vui lòng nhập chủ đề" }, { status: 400 });
+      return NextResponse.json({ error: "Vui lòng nhập chủ đề / câu lệnh" }, { status: 400 });
     }
 
     const config = await prisma.aiConfig.findUnique({
@@ -30,20 +60,17 @@ export async function POST(req: NextRequest) {
     const baseUrl = (config?.baseUrl || "https://api.x.ai/v1").replace(/\/$/, "");
     const model = config?.model || "grok-4.5";
 
-    let title = topic;
-    let contentBody = "";
+    let structured: StructuredContent = buildPlatformTemplate({
+      topic,
+      platform,
+      type,
+      tone,
+      authorName: session.user.name || "Roni Creator",
+    });
     let usedAi = false;
 
     if (apiKey) {
       try {
-        const prompt = `Bạn là content creator Việt Nam chuyên nghiệp.
-Viết nội dung ${type} cho nền tảng ${platform}, giọng ${tone}.
-Chủ đề: ${topic}
-
-Trả về JSON thuần (không markdown):
-{"title":"...","body":"..."}
-Body dùng tiếng Việt, có cấu trúc rõ (mở đầu, thân, CTA).`;
-
         const res = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
@@ -53,13 +80,20 @@ Body dùng tiếng Việt, có cấu trúc rõ (mở đầu, thân, CTA).`;
           body: JSON.stringify({
             model,
             messages: [
-              { role: "system", content: "Chỉ trả JSON hợp lệ, không giải thích." },
-              { role: "user", content: prompt },
+              {
+                role: "system",
+                content:
+                  "Bạn là senior content creator Việt Nam. Chỉ trả JSON hợp lệ theo schema user yêu cầu.",
+              },
+              {
+                role: "user",
+                content: platformPrompt(platform, topic, type, tone),
+              },
             ],
-            temperature: 0.7,
-            max_tokens: 1200,
+            temperature: 0.75,
+            max_tokens: 1600,
           }),
-          signal: AbortSignal.timeout(25000),
+          signal: AbortSignal.timeout(30000),
         });
 
         if (res.ok) {
@@ -68,53 +102,47 @@ Body dùng tiếng Việt, có cấu trúc rõ (mở đầu, thân, CTA).`;
           const match = text.match(/\{[\s\S]*\}/);
           if (match) {
             const parsed = JSON.parse(match[0]);
-            title = parsed.title || title;
-            contentBody = parsed.body || "";
+            structured = {
+              version: 1,
+              platform,
+              type,
+              title: parsed.title || topic,
+              hook: parsed.hook,
+              caption: parsed.caption,
+              body: parsed.body || parsed.caption || "",
+              hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [],
+              cta: parsed.cta,
+              beats: Array.isArray(parsed.beats) ? parsed.beats : structured.beats,
+              authorName: session.user.name || "Roni Creator",
+              authorHandle: "@roni.creator",
+              coverEmoji: pickEmoji(topic),
+              coverGradient: pickGradient(topic + platform),
+            };
             usedAi = true;
           }
         }
       } catch (err) {
-        console.error("AI generate failed, fallback template", err);
+        console.error("AI generate failed, using template", err);
       }
     }
 
-    if (!contentBody) {
-      // Always-working template fallback
-      title = `${topic}`;
-      contentBody = [
-        `## ${topic}`,
-        "",
-        `**Dành cho:** ${platform} · Định dạng: ${type}`,
-        `**Giọng văn:** ${tone}`,
-        "",
-        "### Hook (mở đầu)",
-        `Bạn có bao giờ thắc mắc về «${topic}»? Trong bài này, chúng ta sẽ đi thẳng vào những điểm then chốt.`,
-        "",
-        "### Nội dung chính",
-        `1. **Bối cảnh** — Vì sao «${topic}» đang được quan tâm.`,
-        `2. **Giải pháp / Góc nhìn** — 3 ý chính giúp bạn áp dụng ngay.`,
-        `3. **Ví dụ thực tế** — Case ngắn dễ hình dung.`,
-        "",
-        "### CTA",
-        "Bạn đang làm điều gì liên quan đến chủ đề này? Comment chia sẻ nhé!",
-        "",
-        "---",
-        `*Bản nháp tự động · ${new Date().toLocaleString("vi-VN")} · ${usedAi ? "AI" : "Template"}*`,
-      ].join("\n");
-    }
-
-    // Optionally persist as draft
+    const serialized = serializeContent(structured);
     let content = null;
+
     if (body.save !== false) {
       content = await prisma.content.create({
         data: {
-          title,
-          body: contentBody,
-          type,
+          title: structured.title,
+          body: serialized,
+          type: structured.type || type,
           platform,
           status: "DRAFT",
           authorId: session.user.id,
           teamId: body.teamId || null,
+        },
+        include: {
+          author: { select: { id: true, name: true } },
+          team: { select: { id: true, name: true, color: true } },
         },
       });
 
@@ -124,18 +152,20 @@ Body dùng tiếng Việt, có cấu trúc rõ (mở đầu, thân, CTA).`;
           action: usedAi ? "AI_GENERATE" : "TEMPLATE_GENERATE",
           entity: "Content",
           entityId: content.id,
+          metadata: JSON.stringify({ platform, topic }),
         },
       });
     }
 
     return NextResponse.json({
-      title,
-      body: contentBody,
+      structured,
+      title: structured.title,
+      body: serialized,
       usedAi,
       content,
       message: usedAi
-        ? "Đã sinh nội dung bằng AI"
-        : "Đã tạo bản nháp từ template (chưa cấu hình API Key AI — vào Cài đặt để thêm key).",
+        ? `Đã sinh nội dung ${platform.toUpperCase()} bằng AI — xem preview bên phải`
+        : `Đã tạo bản nháp ${platform.toUpperCase()} (template). Thêm API Key ở Cài đặt để dùng AI thật.`,
     });
   } catch (e) {
     console.error(e);
