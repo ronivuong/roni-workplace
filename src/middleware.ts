@@ -58,6 +58,7 @@ export const config = {
     "/api/settings/:path*",
     "/api/content",
     "/api/content/:path*",
+    // calendar & distribute nested under content
     "/api/agents",
     "/api/agents/:path*",
     "/api/platforms",

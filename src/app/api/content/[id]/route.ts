@@ -4,6 +4,11 @@ import { getSession } from "@/lib/auth";
 import { isLeaderOrAbove } from "@/lib/rbac";
 import { createNotification, notifyUsers } from "@/lib/notifications";
 import { buildPublishedUrl } from "@/lib/publish-url";
+import {
+  parseContentBody,
+  serializeContent,
+  type StructuredContent,
+} from "@/lib/content-formats";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -29,6 +34,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         author: { select: { id: true, name: true, email: true, image: true } },
         assignee: { select: { id: true, name: true } },
         team: true,
+        publishes: { orderBy: { createdAt: "desc" } },
       },
     });
     if (!content) {
@@ -71,6 +77,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (body.title !== undefined) data.title = String(body.title).trim();
     if (body.body !== undefined) data.body = body.body;
+    // Accept structured editor payload
+    if (body.structured && typeof body.structured === "object") {
+      const s = body.structured as StructuredContent;
+      const merged: StructuredContent = {
+        ...parseContentBody(existing.body, {
+          title: existing.title,
+          platform: existing.platform,
+          type: existing.type,
+        }),
+        ...s,
+        version: 1,
+      };
+      data.body = serializeContent(merged);
+      if (merged.title) data.title = merged.title;
+      if (merged.platform) data.platform = merged.platform;
+      if (merged.type) data.type = merged.type;
+    }
     if (body.type !== undefined) data.type = body.type;
     if (body.platform !== undefined) data.platform = body.platform;
     if (body.teamId !== undefined) data.teamId = body.teamId;

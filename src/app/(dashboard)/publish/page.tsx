@@ -44,6 +44,7 @@ import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { isLeaderOrAbove } from "@/lib/rbac";
 import type { PlatformDefinition, PlatformField } from "@/lib/platforms";
 import { buildPublishedUrl } from "@/lib/publish-url";
+import { ScheduleCalendar } from "@/components/content/schedule-calendar";
 
 type PlatformItem = PlatformDefinition & {
   connection: {
@@ -73,6 +74,11 @@ type Content = {
   publishedAt?: string | null;
   publishedUrl?: string | null;
   author: { name: string };
+  publishes?: {
+    platform: string;
+    publishedUrl: string | null;
+    status: string;
+  }[];
 };
 
 export default function PublishPage() {
@@ -289,6 +295,7 @@ export default function PublishPage() {
           </TabsTrigger>
           <TabsTrigger value="queue">Hàng đợi đăng</TabsTrigger>
           <TabsTrigger value="history">Đã đăng</TabsTrigger>
+          <TabsTrigger value="calendar">Lịch đăng</TabsTrigger>
         </TabsList>
 
         {/* ===== CONNECTIONS ===== */}
@@ -536,10 +543,13 @@ export default function PublishPage() {
               ) : (
                 published.slice(0, 30).map((c) => {
                   const url = resolvePostUrl(c);
+                  const multi = (c as Content & { publishes?: { platform: string; publishedUrl: string | null; status: string }[] }).publishes?.filter(
+                    (p) => p.status === "PUBLISHED"
+                  );
                   return (
                     <div
                       key={c.id}
-                      className="flex flex-col gap-2 rounded-xl border border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-2 rounded-xl border border-slate-100 px-3 py-3 sm:flex-row sm:items-start sm:justify-between"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -550,26 +560,61 @@ export default function PublishPage() {
                             {c.title}
                           </p>
                           <Badge>Published</Badge>
-                          {c.platform && (
-                            <Badge variant="outline" className="capitalize gap-1">
-                              <PlatformIconInline platform={c.platform} className="h-3 w-3" />
-                              {c.platform}
-                            </Badge>
-                          )}
                         </div>
                         <p className="mt-0.5 text-xs text-slate-400">
                           {c.author.name} ·{" "}
                           {formatDate(c.publishedAt || c.updatedAt)}
                         </p>
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-1.5 inline-flex max-w-full items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline break-all"
-                        >
-                          <ExternalLink className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{url}</span>
-                        </a>
+                        {multi && multi.length > 0 ? (
+                          <div className="mt-2 space-y-1.5">
+                            {multi.map((p) => {
+                              const link =
+                                p.publishedUrl ||
+                                buildPublishedUrl({
+                                  contentId: c.id,
+                                  title: c.title,
+                                  platform: p.platform,
+                                });
+                              return (
+                                <div
+                                  key={p.platform + link}
+                                  className="flex flex-wrap items-center gap-2 text-xs"
+                                >
+                                  <PlatformIconInline platform={p.platform} />
+                                  <span className="font-medium capitalize text-slate-600">
+                                    {p.platform}:
+                                  </span>
+                                  <a
+                                    href={link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-emerald-600 hover:underline break-all"
+                                  >
+                                    {link}
+                                  </a>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 px-1.5"
+                                    onClick={() => copyLink(link)}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1.5 inline-flex max-w-full items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline break-all"
+                          >
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{url}</span>
+                          </a>
+                        )}
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2 sm:pl-3">
                         <Button size="sm" variant="outline" asChild>
@@ -593,6 +638,10 @@ export default function PublishPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="calendar">
+          <ScheduleCalendar />
         </TabsContent>
       </Tabs>
 

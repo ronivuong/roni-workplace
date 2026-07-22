@@ -171,10 +171,34 @@ model Content {
   author   User  @relation(fields: [authorId], references: [id])
   assignee User? @relation("AssignedTasks", fields: [assigneeId], references: [id])
   team     Team? @relation(fields: [teamId], references: [id])
+  publishes ContentPublish[]
 
   @@index([authorId])
   @@index([teamId])
   @@index([status])
+}
+
+/// Per-platform publish / schedule record (multi-channel)
+model ContentPublish {
+  id           String    @id @default(cuid())
+  contentId    String
+  platform     String
+  /// DRAFT | SCHEDULED | PUBLISHED | FAILED
+  status       String    @default("SCHEDULED")
+  publishedUrl String?
+  scheduledAt  DateTime?
+  publishedAt  DateTime?
+  error        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
+  @@index([contentId, platform])
+  @@index([platform])
+  @@index([status])
+  @@index([scheduledAt])
 }
 
 model AgentJob {

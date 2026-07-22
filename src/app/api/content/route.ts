@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
         author: { select: { id: true, name: true, image: true } },
         assignee: { select: { id: true, name: true } },
         team: { select: { id: true, name: true, color: true } },
+        publishes: { orderBy: { createdAt: "desc" }, take: 12 },
       },
     });
 
