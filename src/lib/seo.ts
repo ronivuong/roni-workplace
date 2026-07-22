@@ -60,13 +60,48 @@ export function slugifyVi(text: string) {
 }
 
 export function countWords(text: string) {
-  const cleaned = text
+  // Support both markdown and HTML (Classic Editor stores HTML)
+  const stripped = text
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/?(p|div|h[1-6]|li|blockquote|tr)[^>]*>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/[#>*_`\[\]()!-]/g, " ")
+    .replace(/&nbsp;/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!cleaned) return 0;
-  return cleaned.split(" ").filter(Boolean).length;
+  if (!stripped) return 0;
+  return stripped.split(" ").filter(Boolean).length;
+}
+
+function countHeadings(body: string, level: 2 | 3) {
+  if (level === 2) {
+    return (
+      (body.match(/^##\s+/gm) || []).length +
+      (body.match(/<h2[\s>]/gi) || []).length
+    );
+  }
+  return (
+    (body.match(/^###\s+/gm) || []).length +
+    (body.match(/<h3[\s>]/gi) || []).length
+  );
+}
+
+function headingLines(body: string, level: 2 | 3): string[] {
+  const md =
+    level === 2
+      ? body.match(/^##\s+.+$/gm) || []
+      : body.match(/^###\s+.+$/gm) || [];
+  const tag = level === 2 ? "h2" : "h3";
+  const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "gi");
+  const html: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body)) !== null) {
+    html.push(m[1].replace(/<[^>]+>/g, " ").trim());
+  }
+  return [...md, ...html];
 }
 
 export function readingMinutes(wordCount: number) {
@@ -98,10 +133,15 @@ export function scoreArticleSeo(input: {
   const secondary = input.secondaryKeywords || [];
   const target = input.wordCountTarget || 1200;
   const wordCount = countWords(body);
-  const first100 = body.slice(0, 400);
+  const plainBody = body
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[#>*_`]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const first100 = plainBody.slice(0, 400);
 
-  const h2Count = (body.match(/^##\s+/gm) || []).length;
-  const h3Count = (body.match(/^###\s+/gm) || []).length;
+  const h2Count = countHeadings(body, 2);
+  const h2Lines = headingLines(body, 2);
 
   const checks: SeoCheck[] = [
     {
@@ -123,10 +163,8 @@ export function scoreArticleSeo(input: {
       label: "Từ khóa / biến thể trong ít nhất 1 H2",
       ok:
         !kw ||
-        (body.match(/^##\s+.+$/gm) || []).some((h) => includesKeyword(h, kw)) ||
-        secondary.some((s) =>
-          (body.match(/^##\s+.+$/gm) || []).some((h) => includesKeyword(h, s))
-        ),
+        h2Lines.some((h) => includesKeyword(h, kw)) ||
+        secondary.some((s) => h2Lines.some((h) => includesKeyword(h, s))),
       weight: 10,
       hint: "Dùng keyword hoặc secondary trong heading",
     },
@@ -179,7 +217,8 @@ export function scoreArticleSeo(input: {
       label: "Có section FAQ hoặc H2 hỏi đáp",
       ok:
         /faq|câu hỏi|hỏi đáp/i.test(body) ||
-        (body.match(/^##\s+.+\?/gm) || []).length >= 1,
+        (body.match(/^##\s+.+\?/gm) || []).length >= 1 ||
+        h2Lines.some((h) => /\?|faq|câu hỏi|hỏi đáp/i.test(h)),
       weight: 4,
     },
     {

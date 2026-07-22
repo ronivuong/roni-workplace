@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PlatformPreview } from "@/components/content/platform-preview";
+import { ClassicEditor } from "@/components/content/classic-editor";
 import {
   emptySeoMeta,
   scoreArticleSeo,
@@ -92,12 +93,6 @@ export function ArticleSeoWorkspace({
 
   const patchBody = (body: string) => {
     onChange({ ...structured, body, mode: "article", type: "article" });
-  };
-
-  const insertMarkdown = (snippet: string) => {
-    const body = structured.body || "";
-    const sep = body && !body.endsWith("\n") ? "\n\n" : body ? "\n" : "";
-    patchBody(body + sep + snippet);
   };
 
   const runGenerate = async (mode: "outline" | "draft" | "meta" | "full") => {
@@ -372,7 +367,7 @@ export function ArticleSeoWorkspace({
                 Soạn thảo bài viết
               </CardTitle>
               <CardDescription className="text-[11px]">
-                Markdown · {score.wordCount} từ · ~{score.readingMinutes} phút đọc
+                Classic Editor · {score.wordCount} từ · ~{score.readingMinutes} phút đọc
                 {contentId ? ` · ID …${contentId.slice(-6)}` : ""}
               </CardDescription>
             </div>
@@ -430,37 +425,11 @@ export function ArticleSeoWorkspace({
               </div>
             )}
 
-            <div className="flex flex-wrap gap-1 border-b border-slate-100 pb-2">
-              {[
-                { l: "H2", s: "\n## Tiêu đề mục\n\n" },
-                { l: "H3", s: "\n### Tiêu đề con\n\n" },
-                { l: "List", s: "\n- Ý 1\n- Ý 2\n- Ý 3\n" },
-                { l: "Quote", s: "\n> Trích dẫn / highlight\n\n" },
-                { l: "FAQ", s: "\n## FAQ\n\n### Câu hỏi?\n\nTrả lời ngắn.\n\n" },
-                {
-                  l: "CTA",
-                  s: `\n## Bước tiếp theo\n\n**${seo.cta || "CTA của bạn"}**\n\n`,
-                },
-              ].map((b) => (
-                <Button
-                  key={b.l}
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-[11px]"
-                  onClick={() => insertMarkdown(b.s)}
-                >
-                  {b.l}
-                </Button>
-              ))}
-            </div>
-
-            <Textarea
-              value={structured.body}
-              onChange={(e) => patchBody(e.target.value)}
-              rows={14}
-              className="font-mono text-sm resize-y min-h-[240px] sm:min-h-[320px] lg:min-h-[360px]"
-              placeholder="# Tiêu đề&#10;&#10;Đoạn mở bài…&#10;&#10;## Mục 1&#10;…"
+            <ClassicEditor
+              value={structured.body || ""}
+              onChange={patchBody}
+              minHeight="360px"
+              placeholder="Viết nội dung như WordPress Classic Editor — định dạng trực quan, tab Text để sửa HTML…"
             />
 
             <div className="grid gap-2 sm:grid-cols-3">

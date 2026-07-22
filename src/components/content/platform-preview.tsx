@@ -328,10 +328,14 @@ function YouTubePreview({ content }: PreviewProps) {
 
 /** WordPress / Blog article */
 function BlogPreview({ content }: PreviewProps) {
-  const paragraphs = (content.body || "")
-    .replace(/^#+\s?/gm, "")
-    .split(/\n\n+/)
-    .filter(Boolean);
+  const raw = content.body || "";
+  const isHtml = /<\/?[a-z][\s\S]*>/i.test(raw);
+  const paragraphs = isHtml
+    ? []
+    : raw
+        .replace(/^#+\s?/gm, "")
+        .split(/\n\n+/)
+        .filter(Boolean);
 
   return (
     <div className="mx-auto w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
@@ -368,13 +372,27 @@ function BlogPreview({ content }: PreviewProps) {
             {content.hook}
           </p>
         )}
-        <div className="prose prose-sm prose-slate max-w-none space-y-2">
-          {paragraphs.slice(0, 8).map((p, i) => (
-            <p key={i} className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-              {p.replace(/\*\*/g, "")}
-            </p>
-          ))}
-        </div>
+        {isHtml ? (
+          <div
+            className="prose prose-sm prose-slate max-w-none text-slate-700 leading-relaxed [&_h2]:text-base [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 line-clamp-[24]"
+            dangerouslySetInnerHTML={{
+              __html: raw
+                .replace(/<script[\s\S]*?<\/script>/gi, "")
+                .replace(/on\w+="[^"]*"/gi, ""),
+            }}
+          />
+        ) : (
+          <div className="prose prose-sm prose-slate max-w-none space-y-2">
+            {paragraphs.slice(0, 8).map((p, i) => (
+              <p
+                key={i}
+                className="text-sm text-slate-700 leading-relaxed whitespace-pre-line"
+              >
+                {p.replace(/\*\*/g, "")}
+              </p>
+            ))}
+          </div>
+        )}
         {content.cta && (
           <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-center">
             <p className="text-sm font-medium text-emerald-800">{content.cta}</p>

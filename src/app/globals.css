@@ -111,3 +111,68 @@ body {
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* WordPress Classic Editor (TipTap) */
+.classic-editor-shell .ProseMirror {
+  outline: none;
+  min-height: 280px;
+}
+.classic-editor-shell .ProseMirror p.is-editor-empty:first-child::before,
+.classic-editor-shell .ProseMirror p[data-placeholder]::before {
+  color: #94a3b8;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.classic-editor-shell .ProseMirror p {
+  margin: 0.65em 0;
+}
+.classic-editor-shell .ProseMirror h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 1.1em 0 0.4em;
+  line-height: 1.3;
+  color: #0f172a;
+}
+.classic-editor-shell .ProseMirror h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 1em 0 0.35em;
+  color: #1e293b;
+}
+.classic-editor-shell .ProseMirror h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0.85em 0 0.3em;
+}
+.classic-editor-shell .ProseMirror ul,
+.classic-editor-shell .ProseMirror ol {
+  padding-left: 1.4rem;
+  margin: 0.5em 0;
+}
+.classic-editor-shell .ProseMirror li {
+  margin: 0.2em 0;
+}
+.classic-editor-shell .ProseMirror blockquote {
+  border-left: 3px solid #10b981;
+  padding-left: 0.85rem;
+  margin: 0.75em 0;
+  color: #475569;
+  font-style: italic;
+}
+.classic-editor-shell .ProseMirror a {
+  color: #0284c7;
+  text-decoration: underline;
+}
+.classic-editor-shell .ProseMirror hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 1.25em 0;
+}
+.classic-editor-shell .ProseMirror code {
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
