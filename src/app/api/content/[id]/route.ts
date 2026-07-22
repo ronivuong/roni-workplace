@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { isLeaderOrAbove } from "@/lib/rbac";
 import { createNotification, notifyUsers } from "@/lib/notifications";
+import { buildPublishedUrl } from "@/lib/publish-url";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -82,11 +83,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       if (!ALLOWED_STATUS.has(body.status)) {
         return NextResponse.json({ error: "Status không hợp lệ" }, { status: 400 });
       }
-      // Agents can only draft / submit review / schedule own
+      // Agents: draft / review / schedule / publish own approved content
       if (!leader) {
-        if (!["DRAFT", "IN_REVIEW", "SCHEDULED"].includes(body.status)) {
+        const allowedAgent = ["DRAFT", "IN_REVIEW", "SCHEDULED", "PUBLISHED"];
+        if (!allowedAgent.includes(body.status)) {
           return NextResponse.json(
-            { error: "Agent chỉ có thể gửi duyệt hoặc lên lịch" },
+            { error: "Agent không có quyền trạng thái này" },
+            { status: 403 }
+          );
+        }
+        if (
+          body.status === "PUBLISHED" &&
+          !["APPROVED", "SCHEDULED", "IN_REVIEW", "DRAFT"].includes(existing.status)
+        ) {
+          return NextResponse.json(
+            { error: "Chỉ publish nội dung của bạn đã sẵn sàng" },
             { status: 403 }
           );
         }
@@ -94,7 +105,51 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       data.status = body.status;
       if (body.status === "PUBLISHED") {
         data.publishedAt = new Date();
+
+        // Resolve platform connection for real account URL context
+        const platformKey = String(
+          body.platform || existing.platform || "blog"
+        ).toLowerCase();
+        let accountId: string | null = null;
+        let accountName: string | null = null;
+        let config: Record<string, string> | null = null;
+        try {
+          const conn = await prisma.platformConnection.findUnique({
+            where: { platform: platformKey },
+          });
+          if (conn) {
+            accountId = conn.accountId;
+            accountName = conn.accountName;
+            if (conn.config) {
+              try {
+                config = JSON.parse(conn.config);
+              } catch {
+                config = null;
+              }
+            }
+          }
+        } catch {
+          // ignore missing table during partial deploys
+        }
+
+        const title =
+          body.title !== undefined ? String(body.title).trim() : existing.title;
+        data.publishedUrl =
+          body.publishedUrl ||
+          buildPublishedUrl({
+            contentId: id,
+            title,
+            platform: platformKey,
+            accountId,
+            accountName,
+            config,
+            explicitUrl: body.publishedUrl,
+          });
       }
+    }
+
+    if (body.publishedUrl !== undefined && body.status !== "PUBLISHED") {
+      data.publishedUrl = body.publishedUrl;
     }
 
     // Publish metrics mock update
@@ -134,8 +189,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           userId: content.authorId,
           type: "PUBLISH_SUCCESS",
           title: "Đăng bài thành công",
-          message: `«${content.title}» đã được publish${content.platform ? ` lên ${content.platform}` : ""}.`,
-          link: "/publish",
+          message: `«${content.title}» đã được publish${content.platform ? ` lên ${content.platform}` : ""}.${content.publishedUrl ? ` Link: ${content.publishedUrl}` : ""}`,
+          link: content.publishedUrl || "/publish",
         });
       } else if (body.status === "IN_REVIEW" && leader === false) {
         // notify leaders

@@ -158,13 +158,15 @@ model Content {
   authorId    String
   assigneeId  String?
   teamId      String?
-  views       Int       @default(0)
-  likes       Int       @default(0)
-  shares      Int       @default(0)
-  publishedAt DateTime?
-  scheduledAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  views        Int       @default(0)
+  likes        Int       @default(0)
+  shares       Int       @default(0)
+  /// Public URL after publish (platform post / article link)
+  publishedUrl String?
+  publishedAt  DateTime?
+  scheduledAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   author   User  @relation(fields: [authorId], references: [id])
   assignee User? @relation("AssignedTasks", fields: [assigneeId], references: [id])

@@ -17,6 +17,7 @@ import {
   XCircle,
   Settings2,
   ExternalLink,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
@@ -46,6 +47,7 @@ import { CONTENT_STATUS_LABELS } from "@/lib/constants";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { isLeaderOrAbove } from "@/lib/rbac";
 import type { PlatformDefinition, PlatformField } from "@/lib/platforms";
+import { buildPublishedUrl } from "@/lib/publish-url";
 
 const ICONS: Record<string, typeof Globe> = {
   wordpress: Globe,
@@ -81,6 +83,8 @@ type Content = {
   platform: string | null;
   type: string;
   updatedAt: string;
+  publishedAt?: string | null;
+  publishedUrl?: string | null;
   author: { name: string };
 };
 
@@ -235,7 +239,18 @@ export default function PublishPage() {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Publish thất bại");
-      toast.success(`Đã đăng lên ${plat.name}`);
+      const url = d.content?.publishedUrl as string | undefined;
+      toast.success(
+        url ? `Đã đăng lên ${plat.name}` : `Đã đăng lên ${plat.name}`,
+        url
+          ? {
+              action: {
+                label: "Mở link",
+                onClick: () => window.open(url, "_blank"),
+              },
+            }
+          : undefined
+      );
       qc.invalidateQueries({ queryKey: ["contents-publish"] });
       qc.invalidateQueries({ queryKey: ["contents"] });
       qc.invalidateQueries({ queryKey: ["notifications"] });
@@ -243,6 +258,28 @@ export default function PublishPage() {
       toast.error(e instanceof Error ? e.message : "Lỗi");
     } finally {
       setPublishingId(null);
+    }
+  };
+
+  const resolvePostUrl = (c: Content) => {
+    if (c.publishedUrl) return c.publishedUrl;
+    const plat = platforms.find((p) => p.key === c.platform);
+    return buildPublishedUrl({
+      contentId: c.id,
+      title: c.title,
+      platform: c.platform,
+      accountId: plat?.connection.accountId,
+      accountName: plat?.connection.accountName,
+      config: plat?.connection.config,
+    });
+  };
+
+  const copyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Đã copy link bài đăng");
+    } catch {
+      toast.error("Không copy được — hãy chọn và copy thủ công");
     }
   };
 
@@ -502,6 +539,9 @@ export default function PublishPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Đã đăng gần đây</CardTitle>
+              <CardDescription>
+                Mỗi bài có link công khai theo nền tảng — mở hoặc copy để chia sẻ.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {published.length === 0 ? (
@@ -509,20 +549,58 @@ export default function PublishPage() {
                   Chưa có bài published
                 </p>
               ) : (
-                published.slice(0, 20).map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{c.title}</p>
-                      <p className="text-xs text-slate-400">
-                        {c.platform || "—"} · {formatDate(c.updatedAt)}
-                      </p>
+                published.slice(0, 30).map((c) => {
+                  const url = resolvePostUrl(c);
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex flex-col gap-2 rounded-xl border border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-slate-900">
+                            {c.title}
+                          </p>
+                          <Badge>Published</Badge>
+                          {c.platform && (
+                            <Badge variant="outline" className="capitalize">
+                              {c.platform}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          {c.author.name} ·{" "}
+                          {formatDate(c.publishedAt || c.updatedAt)}
+                        </p>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1.5 inline-flex max-w-full items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline break-all"
+                        >
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{url}</span>
+                        </a>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-2 sm:pl-3">
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Mở bài
+                          </a>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyLink(url)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy link
+                        </Button>
+                      </div>
                     </div>
-                    <Badge>Published</Badge>
-                  </div>
-                ))
+                  );
+                })
               )}
             </CardContent>
           </Card>
