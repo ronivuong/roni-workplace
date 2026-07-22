@@ -14,6 +14,7 @@ import {
   Settings,
   UserCog,
   Users,
+  FileSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -23,11 +24,12 @@ import { can } from "@/lib/rbac";
 const main = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/content-studio", label: "Studio", icon: PenTool },
-  { href: "/video-studio", label: "Video", icon: Video },
+  { href: "/article-seo", label: "Article", icon: FileSearch },
   { href: "/publish", label: "Publish", icon: Share2 },
 ];
 
 const more = [
+  { href: "/video-studio", label: "Video", icon: Video },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/teams", label: "Team", icon: Users },
   { href: "/users", label: "Users", icon: UserCog, permission: "users:read" as const },

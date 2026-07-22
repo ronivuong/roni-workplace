@@ -7,6 +7,15 @@ import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
+import Image from "@tiptap/extension-image";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
+import Highlight from "@tiptap/extension-highlight";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import type { Editor } from "@tiptap/react";
 import {
   Bold,
   Italic,
@@ -27,7 +36,22 @@ import {
   Heading2,
   Heading3,
   Minus,
+  ImageIcon,
+  Table as TableIcon,
+  Palette,
+  Highlighter,
+  IndentIncrease,
+  IndentDecrease,
+  Code,
+  ChevronDown,
+  Loader2,
+  Plus,
+  Rows3,
+  Columns3,
+  Trash2,
+  BetweenHorizontalStart,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { bodyToEditorHtml } from "@/lib/article-body";
 import { Button } from "@/components/ui/button";
@@ -40,18 +64,45 @@ type Props = {
   placeholder?: string;
 };
 
+const TEXT_COLORS = [
+  { label: "Mặc định", value: "" },
+  { label: "Đen", value: "#0f172a" },
+  { label: "Xám", value: "#64748b" },
+  { label: "Đỏ", value: "#dc2626" },
+  { label: "Cam", value: "#ea580c" },
+  { label: "Vàng", value: "#ca8a04" },
+  { label: "Xanh lá", value: "#16a34a" },
+  { label: "Emerald", value: "#059669" },
+  { label: "Xanh dương", value: "#2563eb" },
+  { label: "Tím", value: "#7c3aed" },
+  { label: "Hồng", value: "#db2777" },
+  { label: "Trắng", value: "#ffffff" },
+];
+
+const HIGHLIGHT_COLORS = [
+  { label: "Không", value: "" },
+  { label: "Vàng", value: "#fef08a" },
+  { label: "Xanh mint", value: "#bbf7d0" },
+  { label: "Xanh sky", value: "#bae6fd" },
+  { label: "Hồng", value: "#fbcfe8" },
+  { label: "Cam", value: "#fed7aa" },
+  { label: "Tím", value: "#e9d5ff" },
+];
+
 function ToolbarBtn({
   onClick,
   active,
   disabled,
   title,
   children,
+  className,
 }: {
   onClick: () => void;
   active?: boolean;
   disabled?: boolean;
   title: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
     <button
@@ -61,10 +112,11 @@ function ToolbarBtn({
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded border border-transparent text-slate-600 transition-colors",
+        "inline-flex h-8 min-w-8 items-center justify-center rounded border border-transparent px-1 text-slate-600 transition-colors",
         "hover:border-slate-300 hover:bg-white hover:text-slate-900",
         "disabled:opacity-40 disabled:pointer-events-none",
-        active && "border-slate-300 bg-white text-slate-900 shadow-sm"
+        active && "border-slate-300 bg-white text-slate-900 shadow-sm",
+        className
       )}
     >
       {children}
@@ -76,9 +128,26 @@ function Divider() {
   return <span className="mx-0.5 h-6 w-px shrink-0 bg-slate-300/80" aria-hidden />;
 }
 
+async function uploadImageFile(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+  const d = await res.json();
+  if (!res.ok) throw new Error(d.error || "Upload thất bại");
+  return d.url as string;
+}
+
+function insertUploadedImage(editor: Editor, url: string, alt?: string) {
+  editor
+    .chain()
+    .focus()
+    .setImage({ src: url, alt: alt || "Hình bài viết" })
+    .run();
+}
+
 /**
- * WordPress Classic Editor–style WYSIWYG:
- * Visual toolbar + content area, with Text (HTML) tab.
+ * WordPress Classic Editor–style WYSIWYG with kitchen sink:
+ * media upload, tables, text/highlight color, Visual + Text tabs.
  */
 export function ClassicEditor({
   value,
@@ -89,8 +158,42 @@ export function ClassicEditor({
 }: Props) {
   const [mode, setMode] = useState<"visual" | "text">("visual");
   const [textSource, setTextSource] = useState("");
+  const [kitchenSink, setKitchenSink] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
+  const [highlightOpen, setHighlightOpen] = useState(false);
   const skipEmit = useRef(false);
   const lastExternal = useRef(value);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<Editor | null>(null);
+
+  const handleImageFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Chỉ chấp nhận file ảnh");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Ảnh tối đa 8MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadImageFile(file);
+      const ed = editorRef.current;
+      if (ed) {
+        insertUploadedImage(ed, url, file.name.replace(/\.[^.]+$/, "") || "Ảnh");
+        toast.success("Đã chèn ảnh");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload ảnh lỗi");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }, []);
+
+  const imageHandlerRef = useRef(handleImageFile);
+  imageHandlerRef.current = handleImageFile;
 
   const extensions = useMemo(
     () => [
@@ -98,8 +201,12 @@ export function ClassicEditor({
         heading: { levels: [2, 3, 4] },
         bulletList: { keepMarks: true },
         orderedList: { keepMarks: true },
+        codeBlock: false,
       }),
       Underline,
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
@@ -108,6 +215,22 @@ export function ClassicEditor({
           target: "_blank",
         },
       }),
+      Image.configure({
+        inline: false,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: "classic-editor-img",
+        },
+      }),
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: {
+          class: "classic-editor-table",
+        },
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Placeholder.configure({ placeholder }),
       TextAlign.configure({
         types: ["heading", "paragraph"],
@@ -128,6 +251,29 @@ export function ClassicEditor({
         ),
         style: `min-height: ${minHeight}`,
       },
+      handleDrop: (_view, event, _slice, moved) => {
+        if (moved || !event.dataTransfer?.files?.length) return false;
+        const file = event.dataTransfer.files[0];
+        if (!file?.type.startsWith("image/")) return false;
+        event.preventDefault();
+        void imageHandlerRef.current(file);
+        return true;
+      },
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith("image/")) {
+            const file = item.getAsFile();
+            if (file) {
+              event.preventDefault();
+              void imageHandlerRef.current(file);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
     },
     onUpdate: ({ editor: ed }) => {
       if (skipEmit.current) return;
@@ -136,6 +282,10 @@ export function ClassicEditor({
       onChange(html);
     },
   });
+
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   // Sync external value (AI generate / load draft)
   useEffect(() => {
@@ -183,11 +333,22 @@ export function ClassicEditor({
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  };
+
+  const insertImageByUrl = () => {
+    if (!editor) return;
+    const url = window.prompt("URL ảnh (https://… hoặc dán link):", "https://");
+    if (!url) return;
+    editor.chain().focus().setImage({ src: url, alt: "Hình bài viết" }).run();
+  };
+
+  const insertTable = () => {
+    if (!editor) return;
     editor
       .chain()
       .focus()
-      .extendMarkRange("link")
-      .setLink({ href: url })
+      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
       .run();
   };
 
@@ -203,6 +364,8 @@ export function ClassicEditor({
     );
   }
 
+  const inTable = editor.isActive("table");
+
   return (
     <div
       className={cn(
@@ -210,45 +373,77 @@ export function ClassicEditor({
         className
       )}
     >
-      {/* WP-style header: label + Visual / Text tabs */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleImageFile(f);
+        }}
+      />
+
+      {/* WP-style header */}
       <div className="flex items-center justify-between gap-2 border-b border-slate-300 bg-[#f6f7f7] px-2 py-1.5">
         <span className="text-[11px] font-medium text-slate-500 px-1 hidden sm:inline">
-          Nội dung
+          Nội dung · Classic Editor
         </span>
-        <div className="flex rounded border border-slate-300 overflow-hidden text-xs font-medium ml-auto">
+        <div className="flex items-center gap-1.5 ml-auto">
           <button
             type="button"
-            onClick={() => switchMode("visual")}
+            onClick={() => setKitchenSink((v) => !v)}
             className={cn(
-              "px-3 py-1.5 transition-colors",
-              mode === "visual"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "bg-[#f0f0f1] text-slate-600 hover:bg-white/80"
+              "hidden sm:inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-medium transition-colors",
+              kitchenSink
+                ? "border-slate-300 bg-white text-slate-800 shadow-sm"
+                : "border-slate-200 bg-[#f0f0f1] text-slate-600 hover:bg-white"
             )}
+            title="Bật/tắt toolbar nâng cao (Kitchen Sink)"
           >
-            Visual
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 transition-transform",
+                kitchenSink && "rotate-180"
+              )}
+            />
+            Kitchen Sink
           </button>
-          <button
-            type="button"
-            onClick={() => switchMode("text")}
-            className={cn(
-              "px-3 py-1.5 border-l border-slate-300 transition-colors",
-              mode === "text"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "bg-[#f0f0f1] text-slate-600 hover:bg-white/80"
-            )}
-          >
-            Text
-          </button>
+          <div className="flex rounded border border-slate-300 overflow-hidden text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => switchMode("visual")}
+              className={cn(
+                "px-3 py-1.5 transition-colors",
+                mode === "visual"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "bg-[#f0f0f1] text-slate-600 hover:bg-white/80"
+              )}
+            >
+              Visual
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("text")}
+              className={cn(
+                "px-3 py-1.5 border-l border-slate-300 transition-colors",
+                mode === "text"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "bg-[#f0f0f1] text-slate-600 hover:bg-white/80"
+              )}
+            >
+              Text
+            </button>
+          </div>
         </div>
       </div>
 
       {mode === "visual" && (
         <>
-          {/* Toolbar row 1 — Classic “kitchen sink” style */}
+          {/* Row 1 — core formatting */}
           <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-[#f6f7f7] px-1.5 py-1">
             <select
-              className="h-8 max-w-[140px] rounded border border-slate-300 bg-white px-1.5 text-xs text-slate-700 mr-0.5"
+              className="h-8 max-w-[130px] rounded border border-slate-300 bg-white px-1.5 text-xs text-slate-700 mr-0.5"
               value={
                 editor.isActive("heading", { level: 2 })
                   ? "h2"
@@ -304,6 +499,94 @@ export function ClassicEditor({
             >
               <Strikethrough className="h-3.5 w-3.5" />
             </ToolbarBtn>
+
+            <Divider />
+
+            <div className="relative">
+              <ToolbarBtn
+                title="Màu chữ"
+                active={!!editor.getAttributes("textStyle").color || colorOpen}
+                onClick={() => {
+                  setColorOpen((v) => !v);
+                  setHighlightOpen(false);
+                }}
+              >
+                <Palette className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              {colorOpen && (
+                <div className="absolute left-0 top-9 z-30 w-44 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                  <p className="text-[10px] font-semibold text-slate-500 mb-1.5 px-0.5">
+                    Màu chữ
+                  </p>
+                  <div className="grid grid-cols-6 gap-1">
+                    {TEXT_COLORS.map((c) => (
+                      <button
+                        key={c.label}
+                        type="button"
+                        title={c.label}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          if (!c.value) editor.chain().focus().unsetColor().run();
+                          else editor.chain().focus().setColor(c.value).run();
+                          setColorOpen(false);
+                        }}
+                        className={cn(
+                          "h-6 w-6 rounded border border-slate-200",
+                          !c.value &&
+                            "bg-[linear-gradient(135deg,#fff_45%,#ef4444_45%,#ef4444_55%,#fff_55%)]"
+                        )}
+                        style={c.value ? { backgroundColor: c.value } : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <ToolbarBtn
+                title="Tô nền chữ"
+                active={editor.isActive("highlight") || highlightOpen}
+                onClick={() => {
+                  setHighlightOpen((v) => !v);
+                  setColorOpen(false);
+                }}
+              >
+                <Highlighter className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              {highlightOpen && (
+                <div className="absolute left-0 top-9 z-30 w-40 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                  <p className="text-[10px] font-semibold text-slate-500 mb-1.5 px-0.5">
+                    Highlight
+                  </p>
+                  <div className="grid grid-cols-4 gap-1">
+                    {HIGHLIGHT_COLORS.map((c) => (
+                      <button
+                        key={c.label}
+                        type="button"
+                        title={c.label}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          if (!c.value) editor.chain().focus().unsetHighlight().run();
+                          else
+                            editor
+                              .chain()
+                              .focus()
+                              .toggleHighlight({ color: c.value })
+                              .run();
+                          setHighlightOpen(false);
+                        }}
+                        className={cn(
+                          "h-6 w-6 rounded border border-slate-200",
+                          !c.value && "bg-white"
+                        )}
+                        style={c.value ? { backgroundColor: c.value } : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <Divider />
 
@@ -372,40 +655,27 @@ export function ClassicEditor({
             >
               <Unlink className="h-3.5 w-3.5" />
             </ToolbarBtn>
+
             <ToolbarBtn
-              title="Đường kẻ ngang"
-              onClick={() => editor.chain().focus().setHorizontalRule().run()}
+              title="Upload ảnh từ máy"
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
             >
-              <Minus className="h-3.5 w-3.5" />
+              {uploading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ImageIcon className="h-3.5 w-3.5" />
+              )}
+            </ToolbarBtn>
+            <ToolbarBtn title="Chèn ảnh bằng URL" onClick={insertImageByUrl}>
+              <span className="text-[10px] font-bold px-0.5">URL</span>
+            </ToolbarBtn>
+            <ToolbarBtn title="Chèn bảng 3×3" onClick={insertTable}>
+              <TableIcon className="h-3.5 w-3.5" />
             </ToolbarBtn>
 
             <Divider />
 
-            <ToolbarBtn
-              title="Heading 2"
-              active={editor.isActive("heading", { level: 2 })}
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            >
-              <Heading2 className="h-3.5 w-3.5" />
-            </ToolbarBtn>
-            <ToolbarBtn
-              title="Heading 3"
-              active={editor.isActive("heading", { level: 3 })}
-              onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            >
-              <Heading3 className="h-3.5 w-3.5" />
-            </ToolbarBtn>
-
-            <Divider />
-
-            <ToolbarBtn
-              title="Xóa định dạng"
-              onClick={() =>
-                editor.chain().focus().unsetAllMarks().clearNodes().run()
-              }
-            >
-              <RemoveFormatting className="h-3.5 w-3.5" />
-            </ToolbarBtn>
             <ToolbarBtn
               title="Hoàn tác"
               disabled={!editor.can().undo()}
@@ -420,34 +690,140 @@ export function ClassicEditor({
             >
               <Redo2 className="h-3.5 w-3.5" />
             </ToolbarBtn>
+            <ToolbarBtn
+              title="Xóa định dạng"
+              onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+            >
+              <RemoveFormatting className="h-3.5 w-3.5" />
+            </ToolbarBtn>
+
+            <ToolbarBtn
+              title="Kitchen Sink"
+              active={kitchenSink}
+              className="sm:hidden"
+              onClick={() => setKitchenSink((v) => !v)}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform",
+                  kitchenSink && "rotate-180"
+                )}
+              />
+            </ToolbarBtn>
           </div>
 
-          {/* Quick inserts (FAQ / CTA) */}
+          {kitchenSink && (
+            <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-[#f0f0f1] px-1.5 py-1">
+              <ToolbarBtn
+                title="Heading 2"
+                active={editor.isActive("heading", { level: 2 })}
+                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+              >
+                <Heading2 className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              <ToolbarBtn
+                title="Heading 3"
+                active={editor.isActive("heading", { level: 3 })}
+                onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+              >
+                <Heading3 className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              <ToolbarBtn
+                title="Đường kẻ ngang"
+                onClick={() => editor.chain().focus().setHorizontalRule().run()}
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              <ToolbarBtn
+                title="Code inline"
+                active={editor.isActive("code")}
+                onClick={() => editor.chain().focus().toggleCode().run()}
+              >
+                <Code className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+
+              <Divider />
+
+              <ToolbarBtn
+                title="Tăng indent list"
+                onClick={() => editor.chain().focus().sinkListItem("listItem").run()}
+              >
+                <IndentIncrease className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              <ToolbarBtn
+                title="Giảm indent list"
+                onClick={() => editor.chain().focus().liftListItem("listItem").run()}
+              >
+                <IndentDecrease className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+
+              <Divider />
+
+              <span className="text-[10px] text-slate-400 px-1 self-center hidden sm:inline">
+                Bảng:
+              </span>
+              <ToolbarBtn title="Chèn bảng 3×3" onClick={insertTable}>
+                <Plus className="h-3 w-3" />
+                <TableIcon className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              <ToolbarBtn
+                title="Thêm hàng dưới"
+                disabled={!inTable}
+                onClick={() => editor.chain().focus().addRowAfter().run()}
+              >
+                <Rows3 className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              <ToolbarBtn
+                title="Thêm cột bên phải"
+                disabled={!inTable}
+                onClick={() => editor.chain().focus().addColumnAfter().run()}
+              >
+                <Columns3 className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              <ToolbarBtn
+                title="Xóa hàng"
+                disabled={!inTable}
+                onClick={() => editor.chain().focus().deleteRow().run()}
+              >
+                <BetweenHorizontalStart className="h-3.5 w-3.5" />
+              </ToolbarBtn>
+              <ToolbarBtn
+                title="Xóa bảng"
+                disabled={!inTable}
+                onClick={() => editor.chain().focus().deleteTable().run()}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-red-500" />
+              </ToolbarBtn>
+
+              <Divider />
+
+              <span className="text-[10px] text-slate-400 px-1 self-center">
+                {uploading ? "Đang upload ảnh…" : "Kéo thả / dán ảnh vào editor"}
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-1 border-b border-slate-200 bg-[#fafafa] px-2 py-1.5">
             <span className="text-[10px] text-slate-400 self-center mr-1">Chèn nhanh:</span>
             {[
               {
                 l: "H2 mục",
                 run: () =>
-                  editor
-                    .chain()
-                    .focus()
-                    .insertContent("<h2>Tiêu đề mục</h2><p></p>")
-                    .run(),
+                  editor.chain().focus().insertContent("<h2>Tiêu đề mục</h2><p></p>").run(),
               },
               {
                 l: "H3",
                 run: () =>
-                  editor
-                    .chain()
-                    .focus()
-                    .insertContent("<h3>Tiêu đề con</h3><p></p>")
-                    .run(),
+                  editor.chain().focus().insertContent("<h3>Tiêu đề con</h3><p></p>").run(),
               },
               {
                 l: "List",
-                run: () =>
-                  editor.chain().focus().toggleBulletList().run(),
+                run: () => editor.chain().focus().toggleBulletList().run(),
+              },
+              { l: "Bảng", run: insertTable },
+              {
+                l: "Ảnh",
+                run: () => fileRef.current?.click(),
               },
               {
                 l: "FAQ",
@@ -467,7 +843,7 @@ export function ClassicEditor({
                     .chain()
                     .focus()
                     .insertContent(
-                      "<h2>Bước tiếp theo</h2><p><strong>Liên hệ tư vấn / Đăng ký nhận bản tin ngay hôm nay.</strong></p><p></p>"
+                      '<h2>Bước tiếp theo</h2><p><strong style="color: #059669">Liên hệ tư vấn / Đăng ký nhận bản tin ngay hôm nay.</strong></p><p></p>'
                     )
                     .run(),
               },
@@ -478,6 +854,7 @@ export function ClassicEditor({
                 size="sm"
                 variant="outline"
                 className="h-6 text-[10px] px-2 bg-white"
+                disabled={uploading && b.l === "Ảnh"}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={b.run}
               >
@@ -486,7 +863,13 @@ export function ClassicEditor({
             ))}
           </div>
 
-          <div className="bg-white classic-editor-shell">
+          <div
+            className="bg-white classic-editor-shell"
+            onClick={() => {
+              setColorOpen(false);
+              setHighlightOpen(false);
+            }}
+          >
             <EditorContent editor={editor} />
           </div>
         </>
@@ -503,17 +886,19 @@ export function ClassicEditor({
           className="w-full resize-y border-0 bg-[#f9f9f9] px-3 py-3 font-mono text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-0"
           style={{ minHeight }}
           spellCheck={false}
-          placeholder="HTML / mã nguồn bài viết…"
+          placeholder="HTML / mã nguồn (img, table, style color)…"
         />
       )}
 
-      <div className="flex items-center justify-between border-t border-slate-200 bg-[#f6f7f7] px-2 py-1 text-[10px] text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-1 border-t border-slate-200 bg-[#f6f7f7] px-2 py-1 text-[10px] text-slate-400">
         <span>
           {mode === "visual"
-            ? "Classic Editor · Visual"
+            ? `Classic Editor · Visual${kitchenSink ? " · Kitchen Sink" : ""}`
             : "Classic Editor · Text (HTML)"}
         </span>
-        <span className="hidden sm:inline">WordPress-style · H1 dùng ô tiêu đề riêng</span>
+        <span className="hidden sm:inline">
+          Ảnh · Bảng · Màu chữ · Highlight · Upload / kéo thả / dán
+        </span>
       </div>
     </div>
   );

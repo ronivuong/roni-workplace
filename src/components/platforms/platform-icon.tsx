@@ -8,6 +8,7 @@ import {
   SiYoutube,
   SiThreads,
 } from "react-icons/si";
+import { FaLinkedinIn } from "react-icons/fa";
 import { HiOutlineGlobeAlt } from "react-icons/hi2";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ const BRAND: Record<
   tiktok: { Icon: SiTiktok, color: "#FFFFFF", bg: "#000000" },
   youtube: { Icon: SiYoutube, color: "#FFFFFF", bg: "#FF0000" },
   threads: { Icon: SiThreads, color: "#FFFFFF", bg: "#000000" },
+  linkedin: { Icon: FaLinkedinIn, color: "#FFFFFF", bg: "#0A66C2" },
   blog: { Icon: HiOutlineGlobeAlt, color: "#FFFFFF", bg: "#10B981" },
   social: { Icon: HiOutlineGlobeAlt, color: "#FFFFFF", bg: "#6366F1" },
 };

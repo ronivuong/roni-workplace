@@ -39,6 +39,8 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/content-studio/:path*",
+    "/article-seo",
+    "/article-seo/:path*",
     "/publish/:path*",
     "/video-studio/:path*",
     "/analytics/:path*",

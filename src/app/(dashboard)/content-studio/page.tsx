@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +17,7 @@ import {
   PenLine,
   Save,
   Smartphone,
+  FileSearch,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
@@ -44,7 +46,6 @@ import { PlatformPreview } from "@/components/content/platform-preview";
 import { ContentEditor } from "@/components/content/content-editor";
 import { DistributePanel } from "@/components/content/distribute-panel";
 import { ScheduleCalendar } from "@/components/content/schedule-calendar";
-import { ArticleSeoWorkspace } from "@/components/content/article-seo-workspace";
 import { PlatformIcon } from "@/components/platforms/platform-icon";
 import { CONTENT_STATUS_LABELS } from "@/lib/constants";
 import {
@@ -155,7 +156,6 @@ export default function ContentStudioPage() {
   const leader = isLeaderOrAbove(session?.user?.role);
 
   const [mainTab, setMainTab] = useState("studio");
-  const [studioMode, setStudioMode] = useState<"social" | "article">("social");
   const [filter, setFilter] = useState("all");
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -227,21 +227,13 @@ export default function ContentStudioPage() {
     setDirty(true);
   }, []);
 
-  const newBlank = (mode?: "social" | "article") => {
-    const m = mode || studioMode;
+  const newBlank = () => {
     setContentId(null);
     setStatus("DRAFT");
     setPrompt("");
-    const p = m === "article" ? "wordpress" : platform;
-    if (m === "article") setPlatform("wordpress");
-    setStudioMode(m);
-    setStructured(emptyStructured(p, session?.user?.name, m));
+    setStructured(emptyStructured(platform, session?.user?.name, "social"));
     setDirty(false);
-    toast.message(
-      m === "article"
-        ? "Article SEO — điền brief hoặc viết tay"
-        : "Canvas trống — soạn tay hoặc dùng AI"
-    );
+    toast.message("Canvas trống — soạn tay hoặc dùng AI");
   };
 
   const loadContent = (c: Content) => {
@@ -256,15 +248,18 @@ export default function ContentStudioPage() {
       !!s.seo ||
       c.platform === "wordpress" ||
       c.platform === "blog";
+    if (isArticle) {
+      toast.message("Bài Article SEO mở ở module riêng");
+      window.location.href = `/article-seo?id=${c.id}`;
+      return;
+    }
     setContentId(c.id);
     setStatus(c.status);
-    setPlatform(c.platform || s.platform || (isArticle ? "wordpress" : "tiktok"));
-    setStudioMode(isArticle ? "article" : "social");
+    setPlatform(c.platform || s.platform || "tiktok");
     setStructured({
       ...s,
-      mode: isArticle ? "article" : "social",
-      type: isArticle ? "article" : s.type,
-      seo: s.seo || (isArticle ? emptySeoMeta() : undefined),
+      mode: "social",
+      type: s.type || "social",
       authorName: s.authorName || session?.user?.name || "Roni Creator",
     });
     setDirty(false);
@@ -278,21 +273,16 @@ export default function ContentStudioPage() {
     }
     setSaving(true);
     try {
-      const plat =
-        studioMode === "article"
-          ? structured.seo?.platform === "blog"
-            ? "blog"
-            : structured.platform || "wordpress"
-          : platform;
+      const plat = platform;
       const payload = {
         title: structured.title,
-        type: studioMode === "article" ? "article" : structured.type,
+        type: structured.type || "social",
         platform: plat,
         structured: {
           ...structured,
           platform: plat,
-          mode: studioMode,
-          type: studioMode === "article" ? "article" : structured.type,
+          mode: "social" as const,
+          type: structured.type || "social",
         },
         status: status === "PUBLISHED" || status === "SCHEDULED" ? status : "DRAFT",
       };
@@ -415,40 +405,16 @@ export default function ContentStudioPage() {
     <div className="space-y-4">
       <PageHeader
         title="AI Content Studio"
-        description="Social + Article SEO: brief → AI → editor → preview → multi-publish."
+        description="Social short-form: brief → AI → editor → preview → multi-publish. Bài SEO dài nằm ở module Article SEO."
         actions={
           <div className="flex w-full sm:w-auto flex-wrap gap-2">
-            <div className="flex rounded-xl border border-slate-200 bg-white p-0.5">
-              <Button
-                size="sm"
-                variant={studioMode === "social" ? "default" : "ghost"}
-                className="h-8"
-                onClick={() => {
-                  if (dirty && !confirm("Đổi mode có thể mất chỉnh sửa chưa lưu. Tiếp tục?"))
-                    return;
-                  setStudioMode("social");
-                  setPlatform("tiktok");
-                  setStructured(emptyStructured("tiktok", session?.user?.name, "social"));
-                  setContentId(null);
-                  setDirty(false);
-                }}
-              >
-                Social
-              </Button>
-              <Button
-                size="sm"
-                variant={studioMode === "article" ? "default" : "ghost"}
-                className="h-8"
-                onClick={() => {
-                  if (dirty && !confirm("Đổi mode có thể mất chỉnh sửa chưa lưu. Tiếp tục?"))
-                    return;
-                  newBlank("article");
-                }}
-              >
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/article-seo">
+                <FileSearch className="h-4 w-4" />
                 Article SEO
-              </Button>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => newBlank(studioMode)}>
+              </Link>
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => newBlank()}>
               <PenLine className="h-4 w-4" />
               <span className="hidden sm:inline">Soạn tay mới</span>
               <span className="sm:hidden">Mới</span>
@@ -480,81 +446,6 @@ export default function ContentStudioPage() {
 
         {/* ========== STUDIO ========== */}
         <TabsContent value="studio" className="mt-4 space-y-4">
-          {studioMode === "article" ? (
-            <div className="space-y-4">
-              <ArticleSeoWorkspace
-                structured={structured}
-                onChange={(next) => {
-                  setStructured(next);
-                  setDirty(true);
-                  if (next.platform) setPlatform(next.platform);
-                }}
-                contentId={contentId}
-                saving={saving}
-                onContentCreated={(id) => {
-                  setContentId(id);
-                  setStatus("DRAFT");
-                  setDirty(false);
-                  qc.invalidateQueries({ queryKey: ["contents"] });
-                }}
-                onSave={async () => {
-                  await saveDraft();
-                }}
-              />
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="flex flex-wrap gap-2">
-                  {contentId && status === "DRAFT" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        ensureSavedThen((id) => setContentStatus(id, "IN_REVIEW"))
-                      }
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      Gửi duyệt
-                    </Button>
-                  )}
-                  {leader && contentId && status === "IN_REVIEW" && (
-                    <>
-                      <Button
-                        size="sm"
-                        onClick={() => setContentStatus(contentId, "APPROVED")}
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                        Duyệt
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setContentStatus(contentId, "REJECTED")}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        Từ chối
-                      </Button>
-                    </>
-                  )}
-                </div>
-                <DistributePanel
-                  contentId={contentId}
-                  platforms={platformOptions}
-                  onEnsureSaved={async () => {
-                    if (!structured.title.trim()) {
-                      toast.error("Nhập tiêu đề H1");
-                      return null;
-                    }
-                    if (dirty || !contentId) return saveDraft({ silent: true });
-                    return contentId;
-                  }}
-                  onDone={() => {
-                    qc.invalidateQueries({ queryKey: ["contents"] });
-                    qc.invalidateQueries({ queryKey: ["content-calendar"] });
-                    qc.invalidateQueries({ queryKey: ["notifications"] });
-                  }}
-                />
-              </div>
-            </div>
-          ) : (
           <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
             {/* Left column: AI + Editor + Distribute */}
             <div className="lg:col-span-5 space-y-4">
@@ -823,7 +714,6 @@ export default function ContentStudioPage() {
               </Card>
             </div>
           </div>
-          )}
         </TabsContent>
 
         {/* ========== LIBRARY ========== */}

@@ -16,6 +16,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  FileSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
@@ -25,6 +26,7 @@ import { can } from "@/lib/rbac";
 const navItems = [
   { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/content-studio", label: "AI Content Studio", icon: PenTool },
+  { href: "/article-seo", label: "Article SEO", icon: FileSearch },
   { href: "/publish", label: "Publish Hub", icon: Share2 },
   { href: "/video-studio", label: "Video Studio", icon: Video },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },

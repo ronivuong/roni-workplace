@@ -2,7 +2,7 @@
 
 export function looksLikeHtml(text: string) {
   if (!text) return false;
-  return /<\/?(p|h[1-6]|ul|ol|li|blockquote|strong|em|a|br|div|span|hr)\b/i.test(
+  return /<\/?(p|h[1-6]|ul|ol|li|blockquote|strong|em|a|br|div|span|hr|img|table|tr|td|th|mark)\b/i.test(
     text
   );
 }
