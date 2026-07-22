@@ -166,9 +166,9 @@ export function ArticleSeoWorkspace({
     "Meta description 140–160 ký tự sẽ hiển thị dưới kết quả tìm kiếm Google…";
 
   return (
-    <div className="grid gap-4 xl:grid-cols-12">
+    <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
       {/* LEFT: SEO Brief */}
-      <div className="xl:col-span-3 space-y-3">
+      <div className="lg:col-span-4 xl:col-span-3 space-y-3">
         <Card className="border-emerald-100 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-1.5">
@@ -363,7 +363,7 @@ export function ArticleSeoWorkspace({
       </div>
 
       {/* CENTER: Editor */}
-      <div className="xl:col-span-5 space-y-3">
+      <div className="lg:col-span-8 xl:col-span-5 space-y-3">
         <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
             <div>
@@ -458,8 +458,8 @@ export function ArticleSeoWorkspace({
             <Textarea
               value={structured.body}
               onChange={(e) => patchBody(e.target.value)}
-              rows={18}
-              className="font-mono text-sm resize-y min-h-[320px]"
+              rows={14}
+              className="font-mono text-sm resize-y min-h-[240px] sm:min-h-[320px] lg:min-h-[360px]"
               placeholder="# Tiêu đề&#10;&#10;Đoạn mở bài…&#10;&#10;## Mục 1&#10;…"
             />
 
@@ -512,7 +512,7 @@ export function ArticleSeoWorkspace({
       </div>
 
       {/* RIGHT: SERP + SEO score + Outline + Preview */}
-      <div className="xl:col-span-4 space-y-3">
+      <div className="lg:col-span-12 xl:col-span-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 xl:sticky xl:top-[calc(var(--header-h)+0.75rem)] xl:self-start">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Google SERP preview</CardTitle>

@@ -277,25 +277,26 @@ export default function PublishPage() {
   };
 
   return (
-    <div>
+    <div className="space-y-1">
       <PageHeader
         title="Publish Hub"
         description="Kết nối WordPress & social, rồi xuất bản nội dung đã duyệt."
       />
 
       <Tabs defaultValue="connections">
-        <TabsList className="mb-4">
-          <TabsTrigger value="connections">
-            Kết nối nền tảng
+        <TabsList className="mb-3 sm:mb-4">
+          <TabsTrigger value="connections" className="gap-1.5">
+            <span className="hidden sm:inline">Kết nối nền tảng</span>
+            <span className="sm:hidden">Kết nối</span>
             {platformData && (
-              <Badge className="ml-2" variant="secondary">
+              <Badge className="ml-0.5 sm:ml-1" variant="secondary">
                 {platformData.connectedCount}/{platforms.length}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="queue">Hàng đợi đăng</TabsTrigger>
+          <TabsTrigger value="queue">Hàng đợi</TabsTrigger>
           <TabsTrigger value="history">Đã đăng</TabsTrigger>
-          <TabsTrigger value="calendar">Lịch đăng</TabsTrigger>
+          <TabsTrigger value="calendar">Lịch</TabsTrigger>
         </TabsList>
 
         {/* ===== CONNECTIONS ===== */}

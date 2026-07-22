@@ -417,7 +417,7 @@ export default function ContentStudioPage() {
         title="AI Content Studio"
         description="Social + Article SEO: brief → AI → editor → preview → multi-publish."
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full sm:w-auto flex-wrap gap-2">
             <div className="flex rounded-xl border border-slate-200 bg-white p-0.5">
               <Button
                 size="sm"
@@ -448,11 +448,13 @@ export default function ContentStudioPage() {
                 Article SEO
               </Button>
             </div>
-            <Button variant="outline" onClick={() => newBlank(studioMode)}>
+            <Button size="sm" variant="outline" onClick={() => newBlank(studioMode)}>
               <PenLine className="h-4 w-4" />
-              Soạn tay mới
+              <span className="hidden sm:inline">Soạn tay mới</span>
+              <span className="sm:hidden">Mới</span>
             </Button>
             <Button
+              size="sm"
               variant="outline"
               disabled={saving}
               onClick={() => saveDraft()}
@@ -462,7 +464,8 @@ export default function ContentStudioPage() {
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Lưu nháp
+              <span className="hidden sm:inline">Lưu nháp</span>
+              <span className="sm:hidden">Lưu</span>
             </Button>
           </div>
         }
@@ -552,9 +555,9 @@ export default function ContentStudioPage() {
               </div>
             </div>
           ) : (
-          <div className="grid gap-4 xl:grid-cols-12">
+          <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
             {/* Left column: AI + Editor + Distribute */}
-            <div className="xl:col-span-5 space-y-4">
+            <div className="lg:col-span-5 space-y-4">
               {/* AI prompt */}
               <Card className="border-emerald-100 overflow-hidden shadow-sm">
                 <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-white">
@@ -569,7 +572,7 @@ export default function ContentStudioPage() {
                 <CardContent className="p-4 space-y-3">
                   <div className="grid gap-1.5">
                     <Label className="text-xs">Nền tảng preview / format</Label>
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                       {PLATFORMS.map((p) => (
                         <button
                           key={p.value}
@@ -579,14 +582,14 @@ export default function ContentStudioPage() {
                             setDirty(true);
                           }}
                           className={cn(
-                            "flex flex-col items-center gap-1 rounded-xl border px-1 py-2 transition-all",
+                            "flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 transition-all",
                             platform === p.value
                               ? "border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200"
                               : "border-slate-200 hover:bg-slate-50"
                           )}
                         >
                           <PlatformIcon platform={p.value} size="sm" />
-                          <span className="text-[9px] font-medium text-slate-700">
+                          <span className="text-[9px] sm:text-[10px] font-medium text-slate-700 text-center leading-tight">
                             {p.label}
                           </span>
                         </button>
@@ -778,19 +781,19 @@ export default function ContentStudioPage() {
             </div>
 
             {/* Right: live preview */}
-            <div className="xl:col-span-7">
-              <Card className="sticky top-20 min-h-[680px] border-slate-200 bg-gradient-to-b from-slate-50 to-white">
-                <CardContent className="p-4 md:p-6">
-                  <div className="mb-4 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
+            <div className="lg:col-span-7">
+              <Card className="sticky-under-header min-h-[420px] sm:min-h-[520px] lg:min-h-[640px] border-slate-200 bg-gradient-to-b from-slate-50 to-white">
+                <CardContent className="p-3 sm:p-4 md:p-6">
+                  <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
                         <Smartphone className="h-4 w-4" />
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">
                           Preview · {platformLabel(platform)}
                         </p>
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-[11px] text-slate-500 hidden sm:block">
                           Cập nhật realtime khi bạn chỉnh editor
                         </p>
                       </div>
@@ -798,15 +801,16 @@ export default function ContentStudioPage() {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="shrink-0"
                       onClick={() => setPreviewOpen(true)}
                     >
                       <Eye className="h-3.5 w-3.5" />
-                      Phóng to
+                      <span className="hidden sm:inline">Phóng to</span>
                     </Button>
                   </div>
 
                   {generating ? (
-                    <div className="flex flex-col items-center justify-center py-28 text-slate-500">
+                    <div className="flex flex-col items-center justify-center py-16 sm:py-28 text-slate-500">
                       <Loader2 className="h-10 w-10 animate-spin text-emerald-500 mb-3" />
                       <p className="text-sm font-medium">AI đang soạn…</p>
                     </div>
@@ -826,13 +830,14 @@ export default function ContentStudioPage() {
         <TabsContent value="library" className="mt-4">
           <Card>
             <CardContent className="p-4">
-              <div className="mb-3 flex flex-wrap gap-2">
+              <div className="mb-3 flex gap-2 overflow-x-auto pb-1 tabs-scroll sm:flex-wrap sm:overflow-visible">
                 {["all", "DRAFT", "IN_REVIEW", "APPROVED", "SCHEDULED", "PUBLISHED"].map(
                   (f) => (
                     <Button
                       key={f}
                       size="sm"
                       variant={filter === f ? "default" : "outline"}
+                      className="shrink-0"
                       onClick={() => setFilter(f)}
                     >
                       {f === "all" ? "Tất cả" : CONTENT_STATUS_LABELS[f] || f}

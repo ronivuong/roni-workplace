@@ -406,19 +406,20 @@ export default function VideoStudioPage() {
         title="Video Studio"
         description="Upload video local · preset chuẩn từng nền tảng · script AI · đăng / lên lịch đa kênh."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setScriptOpen(true)}>
+          <div className="flex w-full sm:w-auto flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => setScriptOpen(true)}>
               <Sparkles className="h-4 w-4" />
               Script AI
             </Button>
             <Button
+              size="sm"
               onClick={() => {
                 setTab("upload");
                 inputRef.current?.click();
               }}
             >
               <Upload className="h-4 w-4" />
-              Upload video
+              Upload
             </Button>
           </div>
         }
@@ -441,7 +442,7 @@ export default function VideoStudioPage() {
       />
 
       {/* Pipeline steps */}
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         {[
           { n: "1", t: "Upload", d: "Máy tính / điện thoại" },
           { n: "2", t: "Preset", d: "Tỷ lệ & limit kênh" },
@@ -450,14 +451,14 @@ export default function VideoStudioPage() {
         ].map((s) => (
           <div
             key={s.n}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 flex items-center gap-2"
+            className="rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 py-2 sm:py-2.5 flex items-center gap-2"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-xs font-bold text-violet-700">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-xs font-bold text-violet-700">
               {s.n}
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold text-slate-900">{s.t}</p>
-              <p className="text-[10px] text-slate-500">{s.d}</p>
+              <p className="text-[10px] text-slate-500 truncate">{s.d}</p>
             </div>
           </div>
         ))}
@@ -472,7 +473,7 @@ export default function VideoStudioPage() {
 
         {/* —— UPLOAD —— */}
         <TabsContent value="upload" className="mt-4 space-y-4">
-          <div className="grid gap-4 lg:grid-cols-12">
+          <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
             <div className="lg:col-span-7 space-y-4">
               {/* Dropzone */}
               <div
@@ -483,7 +484,7 @@ export default function VideoStudioPage() {
                 onDragLeave={() => setDragging(false)}
                 onDrop={onDrop}
                 className={cn(
-                  "rounded-2xl border-2 border-dashed p-8 text-center transition-colors",
+                  "rounded-2xl border-2 border-dashed p-5 sm:p-8 text-center transition-colors",
                   dragging
                     ? "border-violet-400 bg-violet-50"
                     : "border-slate-200 bg-white hover:border-violet-300"
@@ -610,7 +611,7 @@ export default function VideoStudioPage() {
             </div>
 
             {/* Right: presets + validation + distribute */}
-            <div className="lg:col-span-5 space-y-4">
+            <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-[calc(var(--header-h)+0.75rem)] lg:self-start">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Preset nền tảng</CardTitle>
@@ -618,7 +619,7 @@ export default function VideoStudioPage() {
                     Chuẩn xuất bản giống TikTok Studio / Meta / YouTube
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-2 max-h-[min(420px,50vh)] overflow-y-auto overscroll-contain">
                   {VIDEO_PRESETS.map((p) => (
                     <button
                       key={p.id}

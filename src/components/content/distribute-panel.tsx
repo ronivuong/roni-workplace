@@ -112,15 +112,15 @@ export function DistributePanel({
     .slice(0, 16);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
+    <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 space-y-3">
+      <div className="flex items-start sm:items-center justify-between gap-2">
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">Đăng / Lên lịch</p>
           <p className="text-[11px] text-slate-500">
             Chọn một hoặc nhiều nền tảng{connected.length ? " đã kết nối" : ""}
           </p>
         </div>
-        <Button type="button" size="sm" variant="ghost" onClick={selectAll}>
+        <Button type="button" size="sm" variant="ghost" className="shrink-0" onClick={selectAll}>
           Chọn tất cả
         </Button>
       </div>
@@ -140,7 +140,7 @@ export function DistributePanel({
                 disabled={disabled}
                 onClick={() => toggle(p.key)}
                 className={cn(
-                  "flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-all",
+                  "flex min-h-[48px] items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-all",
                   on
                     ? "border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200"
                     : "border-slate-200 hover:border-slate-300 bg-white"
@@ -166,6 +166,7 @@ export function DistributePanel({
           size="sm"
           variant={mode === "publish" ? "default" : "outline"}
           onClick={() => setMode("publish")}
+          className="flex-1 sm:flex-none"
         >
           <Rocket className="h-3.5 w-3.5" />
           Đăng ngay
@@ -175,6 +176,7 @@ export function DistributePanel({
           size="sm"
           variant={mode === "schedule" ? "default" : "outline"}
           onClick={() => setMode("schedule")}
+          className="flex-1 sm:flex-none"
         >
           <CalendarClock className="h-3.5 w-3.5" />
           Lên lịch

@@ -151,31 +151,31 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <PageHeader
         title="Analytics"
         description="Tổng quan toàn bộ kênh, sau đó đào sâu hiệu suất từng nền tảng."
       />
 
       {/* ========== TỔNG QUAN CHUNG ========== */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-1 rounded-full bg-emerald-500" />
-          <h2 className="text-lg font-bold text-slate-900">Tổng quan chung</h2>
-          <Badge variant="secondary" className="ml-1">
+      <section className="space-y-3 sm:space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="h-7 sm:h-8 w-1 rounded-full bg-emerald-500" />
+          <h2 className="text-base sm:text-lg font-bold text-slate-900">Tổng quan chung</h2>
+          <Badge variant="secondary" className="text-[10px] sm:text-xs">
             Toàn bộ nền tảng
           </Badge>
         </div>
 
         {isLoading || !overall ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:gap-4 grid-cols-2 xl:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-28" />
+              <Skeleton key={i} className="h-24 sm:h-28" />
             ))}
           </div>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:gap-4 grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="Tổng views"
                 value={formatNumber(overall.views)}
@@ -203,13 +203,13 @@ export default function AnalyticsPage() {
               />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 lg:grid-cols-3">
               <Card className="lg:col-span-2">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Xu hướng 7 ngày (toàn kênh)</CardTitle>
                   <CardDescription>Views · Likes · Shares tổng hợp</CardDescription>
                 </CardHeader>
-                <CardContent className="h-72">
+                <CardContent className="h-56 sm:h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data.overallTrend}>
                       <defs>
@@ -295,7 +295,7 @@ export default function AnalyticsPage() {
                   Click một nền tảng bên dưới để xem phân tích sâu
                 </CardDescription>
               </CardHeader>
-              <CardContent className="h-80">
+              <CardContent className="h-64 sm:h-80">
                 {(data.comparison || []).length === 0 ? (
                   <p className="text-sm text-slate-500 text-center py-20">
                     Chưa có dữ liệu theo nền tảng — tạo & publish content trước.
@@ -347,12 +347,14 @@ export default function AnalyticsPage() {
       </section>
 
       {/* ========== PHÂN TÍCH SÂU TỪNG NỀN TẢNG ========== */}
-      <section className="space-y-4 border-t border-slate-200 pt-8">
+      <section className="space-y-3 sm:space-y-4 border-t border-slate-200 pt-6 sm:pt-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-1 rounded-full bg-violet-500" />
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Phân tích sâu theo nền tảng</h2>
+          <div className="flex items-start sm:items-center gap-2">
+            <div className="h-7 sm:h-8 w-1 shrink-0 rounded-full bg-violet-500 mt-0.5 sm:mt-0" />
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                Phân tích sâu theo nền tảng
+              </h2>
               <p className="text-xs text-slate-500">
                 Metrics, funnel, top posts, trend & insight cho từng kênh
               </p>
@@ -371,7 +373,7 @@ export default function AnalyticsPage() {
         ) : (
           <>
             {/* Platform picker chips */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 tabs-scroll sm:flex-wrap sm:overflow-visible">
               {platforms.map((p) => {
                 const active = selected?.platform === p.platform;
                 return (
@@ -380,7 +382,7 @@ export default function AnalyticsPage() {
                     type="button"
                     onClick={() => setActivePlatform(p.platform)}
                     className={cn(
-                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all min-w-[140px]",
+                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all min-w-[132px] sm:min-w-[140px] shrink-0",
                       active
                         ? "border-violet-300 bg-violet-50 ring-2 ring-violet-200 shadow-sm"
                         : "border-slate-200 bg-white hover:border-slate-300"

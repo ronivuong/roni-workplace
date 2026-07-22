@@ -23,34 +23,36 @@ export function Header({ title }: { title?: string }) {
   const user = session?.user;
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/80 px-4 backdrop-blur-lg md:px-6">
-      <div className="flex items-center gap-3">
-        <div className="md:hidden">
+    <header className="sticky top-0 z-30 flex h-14 md:h-16 items-center justify-between gap-3 border-b border-slate-200/80 bg-white/85 px-3 sm:px-4 md:px-6 lg:px-8 backdrop-blur-xl supports-[backdrop-filter]:bg-white/75">
+      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+        <div className="md:hidden shrink-0">
           <Logo showText={false} size="sm" />
         </div>
         {title && (
-          <h1 className="text-lg font-semibold text-slate-900 hidden sm:block">{title}</h1>
+          <h1 className="truncate text-base font-semibold text-slate-900 sm:text-lg">
+            {title}
+          </h1>
         )}
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
         <NotificationBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-2 rounded-xl p-1.5 pr-2 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-2 rounded-xl p-1.5 sm:pr-2.5 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
             >
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
                 <AvatarImage src={user?.image || undefined} alt={user?.name || ""} />
                 <AvatarFallback>{getInitials(user?.name || "U")}</AvatarFallback>
               </Avatar>
-              <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-slate-900 leading-none">
+              <div className="hidden sm:block text-left max-w-[140px] lg:max-w-[180px]">
+                <p className="text-sm font-medium text-slate-900 leading-none truncate">
                   {user?.name}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                   {ROLE_LABELS[user?.role || ""] || user?.role}
                 </p>
               </div>
@@ -60,7 +62,9 @@ export function Header({ title }: { title?: string }) {
             <DropdownMenuLabel>
               <div className="flex flex-col gap-1">
                 <span>{user?.name}</span>
-                <span className="text-xs font-normal text-slate-500">{user?.email}</span>
+                <span className="text-xs font-normal text-slate-500 truncate">
+                  {user?.email}
+                </span>
                 <Badge
                   className={`w-fit mt-1 border ${ROLE_COLORS[user?.role || ""] || ""}`}
                   variant="outline"

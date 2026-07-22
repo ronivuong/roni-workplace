@@ -9,6 +9,14 @@
   --muted: #f1f5f9;
   --border: #e2e8f0;
   --ring: #10b981;
+  --header-h: 3.5rem;
+  --bottom-nav-h: 4.25rem;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --header-h: 4rem;
+  }
 }
 
 @theme inline {
@@ -28,36 +36,78 @@
   border-color: var(--border);
 }
 
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Safe area for mobile bottom nav */
+/* Safe area helpers (iOS notch / home indicator) */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-/* Smooth scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0);
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+/* Sticky under app header */
+.sticky-under-header {
+  position: sticky;
+  top: calc(var(--header-h) + 0.75rem);
+  z-index: 10;
 }
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 999px;
+
+/* Horizontal scroll for tab bars on small screens */
+.tabs-scroll {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+.tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth scrollbar (desktop) */
+@media (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
 }
 
 /* Focus ring utility */
 :focus-visible {
   outline: 2px solid color-mix(in srgb, var(--primary) 40%, transparent);
   outline-offset: 2px;
+}
+
+/* Touch-friendly tap highlight */
+@media (hover: none) {
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
