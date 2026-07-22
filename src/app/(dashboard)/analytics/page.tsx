@@ -35,7 +35,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatNumber, formatDate, cn } from "@/lib/utils";
 import { CONTENT_STATUS_LABELS } from "@/lib/constants";
 
@@ -135,7 +134,7 @@ export default function AnalyticsPage() {
   });
 
   const overall = data?.overall;
-  const platforms = data?.platforms || [];
+  const platforms = useMemo(() => data?.platforms || [], [data?.platforms]);
   const selected = useMemo(() => {
     if (!platforms.length) return null;
     const key = activePlatform || platforms[0]?.platform;
@@ -561,7 +560,11 @@ export default function AnalyticsPage() {
                               cx="50%"
                               cy="50%"
                               outerRadius={80}
-                              label={({ type, count }) => `${type} (${count})`}
+                              label={(props) => {
+                                const name = String(props.name ?? "");
+                                const value = Number(props.value ?? 0);
+                                return `${name} (${value})`;
+                              }}
                             >
                               {selected.typeMix.map((_, i) => (
                                 <Cell
@@ -718,12 +721,12 @@ export default function AnalyticsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(data.comparison || []).map((row) => (
+                        {(data?.comparison || []).map((row) => (
                           <tr
                             key={row.platform}
                             className={cn(
                               "border-b border-slate-50 cursor-pointer hover:bg-slate-50",
-                              selected.platform === row.platform && "bg-violet-50/50"
+                              selected?.platform === row.platform && "bg-violet-50/50"
                             )}
                             onClick={() => setActivePlatform(row.platform)}
                           >
