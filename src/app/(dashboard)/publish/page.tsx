@@ -4,11 +4,6 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Share2,
-  Globe,
-  Users,
-  ImageIcon,
-  Video,
   Loader2,
   Rocket,
   Link2,
@@ -43,20 +38,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlatformIcon, PlatformIconInline } from "@/components/platforms/platform-icon";
 import { CONTENT_STATUS_LABELS } from "@/lib/constants";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { isLeaderOrAbove } from "@/lib/rbac";
 import type { PlatformDefinition, PlatformField } from "@/lib/platforms";
 import { buildPublishedUrl } from "@/lib/publish-url";
-
-const ICONS: Record<string, typeof Globe> = {
-  wordpress: Globe,
-  facebook: Users,
-  instagram: ImageIcon,
-  tiktok: Share2,
-  youtube: Video,
-  threads: Share2,
-};
 
 type PlatformItem = PlatformDefinition & {
   connection: {
@@ -332,7 +319,6 @@ export default function PublishPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {platforms.map((p) => {
-                const Icon = ICONS[p.key] || Link2;
                 const c = p.connection;
                 return (
                   <Card
@@ -346,12 +332,7 @@ export default function PublishPage() {
                   >
                     <CardHeader className="pb-2">
                       <div className="flex items-start gap-3">
-                        <div
-                          className="flex h-11 w-11 items-center justify-center rounded-xl text-white"
-                          style={{ backgroundColor: p.color }}
-                        >
-                          <Icon className="h-5 w-5" />
-                        </div>
+                        <PlatformIcon platform={p.key} size="md" />
                         <div className="min-w-0 flex-1">
                           <CardTitle className="text-base flex items-center gap-2">
                             {p.name}
@@ -463,16 +444,19 @@ export default function PublishPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Label className="text-sm text-slate-600">Đăng lên:</Label>
               <Select value={publishPlatform} onValueChange={setPublishPlatform}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-[220px]">
                   <SelectValue placeholder="Chọn nền tảng" />
                 </SelectTrigger>
                 <SelectContent>
                   {connected.map((p) => (
                     <SelectItem key={p.key} value={p.key}>
-                      {p.name}
-                      {p.connection.accountName
-                        ? ` · ${p.connection.accountName}`
-                        : ""}
+                      <span className="inline-flex items-center gap-2">
+                        <PlatformIconInline platform={p.key} />
+                        {p.name}
+                        {p.connection.accountName
+                          ? ` · ${p.connection.accountName}`
+                          : ""}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -512,11 +496,12 @@ export default function PublishPage() {
                           variant="outline"
                           disabled={publishingId === c.id}
                           onClick={() => publish(c.id, p.key)}
+                          className="gap-1.5"
                         >
                           {publishingId === c.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <Rocket className="h-3.5 w-3.5" />
+                            <PlatformIconInline platform={p.key} className="h-3.5 w-3.5" />
                           )}
                           {p.name}
                         </Button>
@@ -558,12 +543,16 @@ export default function PublishPage() {
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
+                          {c.platform && (
+                            <PlatformIcon platform={c.platform} size="sm" />
+                          )}
                           <p className="text-sm font-medium text-slate-900">
                             {c.title}
                           </p>
                           <Badge>Published</Badge>
                           {c.platform && (
-                            <Badge variant="outline" className="capitalize">
+                            <Badge variant="outline" className="capitalize gap-1">
+                              <PlatformIconInline platform={c.platform} className="h-3 w-3" />
                               {c.platform}
                             </Badge>
                           )}
@@ -611,7 +600,10 @@ export default function PublishPage() {
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {activePlatform && (
+                <PlatformIcon platform={activePlatform.key} size="sm" />
+              )}
               Kết nối {activePlatform?.name}
             </DialogTitle>
             <DialogDescription>
