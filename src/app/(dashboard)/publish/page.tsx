@@ -13,6 +13,7 @@ import {
   Settings2,
   ExternalLink,
   Copy,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
@@ -39,6 +40,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlatformIcon, PlatformIconInline } from "@/components/platforms/platform-icon";
+import { PlatformPreview } from "@/components/content/platform-preview";
+import { parseContentBody, platformLabel } from "@/lib/content-formats";
 import { CONTENT_STATUS_LABELS } from "@/lib/constants";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { isLeaderOrAbove } from "@/lib/rbac";
@@ -67,13 +70,14 @@ type PlatformItem = PlatformDefinition & {
 type Content = {
   id: string;
   title: string;
+  body?: string | null;
   status: string;
   platform: string | null;
   type: string;
   updatedAt: string;
   publishedAt?: string | null;
   publishedUrl?: string | null;
-  author: { name: string };
+  author: { name: string; image?: string | null };
   publishes?: {
     platform: string;
     publishedUrl: string | null;
@@ -93,6 +97,9 @@ export default function PublishPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [publishPlatform, setPublishPlatform] = useState<string>("");
+  const [previewItem, setPreviewItem] = useState<Content | null>(null);
+  const [previewPlatform, setPreviewPlatform] = useState<string>("blog");
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const { data: platformData, isLoading: loadingPlatforms } = useQuery({
     queryKey: ["platforms"],
@@ -276,6 +283,46 @@ export default function PublishPage() {
     }
   };
 
+  const openPreview = async (c: Content, preferredPlatform?: string) => {
+    const plat =
+      preferredPlatform ||
+      c.platform ||
+      publishPlatform ||
+      connected[0]?.key ||
+      "blog";
+    setPreviewPlatform(plat);
+    setPreviewItem(c);
+    // Fetch full body if list payload is thin
+    if (c.body == null || c.body === "") {
+      setPreviewLoading(true);
+      try {
+        const res = await fetch(`/api/content/${c.id}`);
+        if (res.ok) {
+          const d = await res.json();
+          if (d.content) setPreviewItem(d.content as Content);
+        }
+      } catch {
+        /* keep list item */
+      } finally {
+        setPreviewLoading(false);
+      }
+    }
+  };
+
+  const previewStructured = previewItem
+    ? {
+        ...parseContentBody(previewItem.body, {
+          title: previewItem.title,
+          platform: previewPlatform || previewItem.platform,
+          type: previewItem.type,
+        }),
+        platform: previewPlatform || previewItem.platform || "blog",
+        authorName:
+          parseContentBody(previewItem.body).authorName ||
+          previewItem.author?.name,
+      }
+    : null;
+
   return (
     <div className="space-y-1">
       <PageHeader
@@ -294,7 +341,7 @@ export default function PublishPage() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="queue">Hàng đợi</TabsTrigger>
+          <TabsTrigger value="queue">Chờ đăng</TabsTrigger>
           <TabsTrigger value="history">Đã đăng</TabsTrigger>
           <TabsTrigger value="calendar">Lịch</TabsTrigger>
         </TabsList>
@@ -308,7 +355,7 @@ export default function PublishPage() {
                 <li>Chọn nền tảng → điền Site URL / Token / Page ID theo form</li>
                 <li>Bấm <strong>Kết nối</strong> để lưu credential (mã hóa phía server)</li>
                 <li>Bấm <strong>Test Connection</strong> để kiểm tra API thật</li>
-                <li>Vào tab <strong>Hàng đợi đăng</strong> để publish nội dung đã duyệt</li>
+                <li>Vào tab <strong>Chờ đăng</strong> để xem preview & publish nội dung đã duyệt</li>
               </ol>
               {!canManage && (
                 <p className="mt-2 text-xs text-amber-700">
@@ -474,7 +521,10 @@ export default function PublishPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Hàng đợi xuất bản</CardTitle>
+              <CardTitle className="text-base">Bài chờ xuất bản</CardTitle>
+              <CardDescription>
+                Bấm vào bài để xem preview như đã đăng trên từng nền tảng, rồi chọn kênh publish.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {isLoading ? (
@@ -487,16 +537,38 @@ export default function PublishPage() {
                 queue.map((c) => (
                   <div
                     key={c.id}
-                    className="flex flex-col gap-2 rounded-xl border border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 rounded-xl border border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between hover:border-emerald-200 hover:bg-emerald-50/30 transition-colors"
                   >
-                    <div>
-                      <p className="font-medium text-slate-900">{c.title}</p>
-                      <p className="text-xs text-slate-500">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => openPreview(c)}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        {c.platform && (
+                          <PlatformIcon platform={c.platform} size="sm" />
+                        )}
+                        <p className="font-medium text-slate-900 hover:text-emerald-700">
+                          {c.title}
+                        </p>
+                        <Badge variant="secondary">
+                          {CONTENT_STATUS_LABELS[c.status] || c.status}
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-500">
                         {c.author.name} · {c.platform || "chưa chọn nền tảng"} ·{" "}
-                        {CONTENT_STATUS_LABELS[c.status]} · {formatDate(c.updatedAt)}
+                        {formatDate(c.updatedAt)} · bấm để xem preview
                       </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
+                    </button>
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openPreview(c)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Xem
+                      </Button>
                       {connected.map((p) => (
                         <Button
                           key={p.key}
@@ -645,6 +717,126 @@ export default function PublishPage() {
           <ScheduleCalendar />
         </TabsContent>
       </Tabs>
+
+      {/* Preview dialog — like published feed mock */}
+      <Dialog
+        open={!!previewItem}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewItem(null);
+            setPreviewLoading(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 pr-6">
+              <Eye className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span className="truncate">
+                Preview · {previewItem?.title || "Bài chờ đăng"}
+              </span>
+            </DialogTitle>
+            <DialogDescription>
+              Giao diện mô phỏng như đã xuất bản
+              {previewPlatform
+                ? ` trên ${platformLabel(previewPlatform)}`
+                : ""}
+              . Chọn nền tảng bên dưới để đổi khung preview.
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewItem && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">
+                  {CONTENT_STATUS_LABELS[previewItem.status] || previewItem.status}
+                </Badge>
+                <span className="text-xs text-slate-500">
+                  {previewItem.author?.name} · {formatDate(previewItem.updatedAt)}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {(platforms.length
+                  ? platforms
+                  : [
+                      { key: "tiktok", name: "TikTok" },
+                      { key: "instagram", name: "Instagram" },
+                      { key: "facebook", name: "Facebook" },
+                      { key: "youtube", name: "YouTube" },
+                      { key: "wordpress", name: "WordPress" },
+                      { key: "threads", name: "Threads" },
+                    ]
+                ).map((p) => {
+                  const key = "key" in p ? p.key : (p as { key: string }).key;
+                  const name = "name" in p ? p.name : key;
+                  const active = previewPlatform === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setPreviewPlatform(key)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all",
+                        active
+                          ? "border-emerald-400 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-200"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      <PlatformIconInline platform={key} className="h-3.5 w-3.5" />
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-2xl border border-slate-100 bg-gradient-to-b from-slate-50 to-white p-3 sm:p-5 max-h-[min(60vh,640px)] overflow-y-auto">
+                {previewLoading || !previewStructured ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                    <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mb-2" />
+                    <p className="text-sm">Đang tải preview…</p>
+                  </div>
+                ) : (
+                  <PlatformPreview content={previewStructured} />
+                )}
+              </div>
+
+              {connected.length > 0 && (
+                <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                  <p className="w-full text-xs font-medium text-slate-500 mb-0.5">
+                    Đăng ngay lên:
+                  </p>
+                  {connected.map((p) => (
+                    <Button
+                      key={p.key}
+                      size="sm"
+                      disabled={publishingId === previewItem.id}
+                      onClick={async () => {
+                        await publish(previewItem.id, p.key);
+                        setPreviewItem(null);
+                      }}
+                      className="gap-1.5"
+                    >
+                      {publishingId === previewItem.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <PlatformIconInline platform={p.key} className="h-3.5 w-3.5" />
+                      )}
+                      {p.name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewItem(null)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Connect dialog */}
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
