@@ -62,5 +62,7 @@ export const config = {
     "/api/agents/:path*",
     "/api/platforms",
     "/api/platforms/:path*",
+    "/api/analytics",
+    "/api/analytics/:path*",
   ],
 };
