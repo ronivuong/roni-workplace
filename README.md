@@ -1,6 +1,6 @@
 # Roni Workplace
 
-**AI Content Operating System** dành cho cá nhân và team sáng tạo nội dung Việt Nam.
+**AI Content Operating System**.
 
 Nền tảng giúp creator quản lý toàn bộ quy trình: ý tưởng → AI content → video viral → publish → analytics → agent scheduler.
 
