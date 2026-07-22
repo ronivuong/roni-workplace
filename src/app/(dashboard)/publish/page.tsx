@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Loader2,
-  Rocket,
   Link2,
   Unlink,
   CheckCircle2,

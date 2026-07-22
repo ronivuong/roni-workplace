@@ -140,7 +140,7 @@ export function htmlToMarkdown(html: string): string {
   if (!html?.trim()) return "";
   if (!looksLikeHtml(html)) return html;
 
-  let s = html
+  const s = html
     .replace(/\r\n/g, "\n")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
