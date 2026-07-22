@@ -34,8 +34,7 @@ export default function PublishPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-slate-500">
-                Kết nối OAuth / API token trong phase tiếp theo. Lịch sử đăng bài và
-                thông báo PUBLISH_SUCCESS đã được seed sẵn.
+                Kết nối OAuth / API token để đăng bài tự động lên kênh này.
               </p>
             </CardContent>
           </Card>

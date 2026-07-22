@@ -106,9 +106,6 @@ export default function LandingPage() {
               <Link href="#features">Khám phá tính năng</Link>
             </Button>
           </div>
-          <p className="mt-4 text-xs text-slate-400">
-            Demo: admin@roni.vn / Admin@123
-          </p>
         </div>
       </section>
 

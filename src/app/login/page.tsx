@@ -17,8 +17,8 @@ function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const urlError = searchParams.get("error");
 
-  const [email, setEmail] = useState("admin@roni.vn");
-  const [password, setPassword] = useState("Admin@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(
@@ -119,14 +119,9 @@ function LoginForm() {
           </Button>
         </form>
 
-        <div className="mt-6 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 space-y-1">
-          <p className="font-medium text-slate-700">Tài khoản demo:</p>
-          <p>Admin: admin@roni.vn / Admin@123</p>
-          <p>Leader: leader@roni.vn / Leader@123</p>
-          <p>Agent: an.pham@roni.vn / Agent@123</p>
-        </div>
-
-        <p className="mt-4 text-center text-xs text-slate-400">
+        <p className="mt-6 text-center text-xs text-slate-400">
+          Liên hệ Admin/Leader để được cấp tài khoản.
+          <br />
           <Link href="/" className="text-emerald-600 hover:underline">
             ← Về trang chủ
           </Link>

@@ -31,7 +31,7 @@ export default async function ContentStudioPage() {
         title="AI Content Studio"
         description="Viết bài, caption, script bằng AI — workflow duyệt nội bộ."
         actions={
-          <Button disabled title="Sắp ra mắt — phase AI">
+          <Button disabled title="Tính năng đang được hoàn thiện">
             <Plus className="h-4 w-4" />
             Tạo nội dung AI
           </Button>
@@ -46,7 +46,7 @@ export default async function ContentStudioPage() {
             </div>
             <div>
               <p className="font-semibold text-slate-900">Viết với AI</p>
-              <p className="text-xs text-slate-500">SpaceXAI / Grok — phase 2</p>
+              <p className="text-xs text-slate-500">Sinh nội dung bằng AI</p>
             </div>
           </CardContent>
         </Card>
