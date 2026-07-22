@@ -100,20 +100,6 @@ npm run db:seed
 npm run dev
 ```
 
-Mở [http://localhost:3000](http://localhost:3000)
-
----
-
-## Tài khoản demo
-
-| Role | Email | Password |
-|------|--------|----------|
-| **Admin** | `admin@roni.vn` | `Admin@123` |
-| **Leader** | `leader@roni.vn` | `Leader@123` |
-| **Agent** | `an.pham@roni.vn` | `Agent@123` |
-
-Teams mẫu: **Roni Media** → Content Marketing → Social Growth · Video Production.
-
 ---
 
 ## Scripts
