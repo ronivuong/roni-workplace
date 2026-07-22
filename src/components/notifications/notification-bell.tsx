@@ -48,23 +48,18 @@ export function NotificationBell() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
-  // SSE for near-realtime
+  // Optional one-shot SSE boost (does not keep long-lived connection on Vercel)
   useEffect(() => {
     let es: EventSource | null = null;
     try {
       es = new EventSource("/api/notifications/stream");
-      es.onmessage = (ev) => {
-        try {
-          const payload = JSON.parse(ev.data);
-          if (payload.type === "new" || payload.type === "init") {
-            queryClient.invalidateQueries({ queryKey: ["notifications"] });
-          }
-        } catch {
-          // ignore
-        }
+      es.onmessage = () => {
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        es?.close();
       };
+      es.onerror = () => es?.close();
     } catch {
-      // SSE not available
+      // polling fallback already enabled
     }
     return () => es?.close();
   }, [queryClient]);

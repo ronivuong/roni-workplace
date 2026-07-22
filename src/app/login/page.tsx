@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const urlError = searchParams.get("error");
@@ -40,12 +39,16 @@ function LoginForm() {
         redirect: false,
       });
       if (res?.error) {
-        setError(res.error === "CredentialsSignin" ? "Email hoặc mật khẩu không đúng" : res.error);
+        setError(
+          res.error === "CredentialsSignin"
+            ? "Email hoặc mật khẩu không đúng"
+            : res.error
+        );
         setLoading(false);
         return;
       }
-      router.push(callbackUrl);
-      router.refresh();
+      // Hard navigation ensures session cookie is picked up everywhere
+      window.location.href = callbackUrl || "/dashboard";
     } catch {
       setError("Có lỗi xảy ra. Thử lại sau.");
       setLoading(false);

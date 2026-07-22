@@ -12,28 +12,22 @@ export default withAuth(
 
     const role = token?.role as string | undefined;
 
-    // Admin-only routes
     if (path.startsWith("/settings") && role !== "ADMIN") {
       return NextResponse.redirect(new URL("/dashboard?error=forbidden", req.url));
     }
 
-    // User management: Admin + Leader
     if (path.startsWith("/users") && role !== "ADMIN" && role !== "LEADER") {
       return NextResponse.redirect(new URL("/dashboard?error=forbidden", req.url));
     }
 
-    // Team write operations handled in API; page readable by all authenticated
     return NextResponse.next();
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
         const path = req.nextUrl.pathname;
-        // Public routes
         if (path === "/" || path === "/login") return true;
-        // API auth always allowed
         if (path.startsWith("/api/auth")) return true;
-        // Everything else needs token
         if (path.startsWith("/api/")) return !!token;
         return !!token;
       },
@@ -53,10 +47,18 @@ export const config = {
     "/agents/:path*",
     "/notifications/:path*",
     "/settings/:path*",
+    // Include base paths AND nested (Next matcher quirks)
+    "/api/users",
     "/api/users/:path*",
+    "/api/teams",
     "/api/teams/:path*",
+    "/api/notifications",
     "/api/notifications/:path*",
     "/api/upload/:path*",
     "/api/settings/:path*",
+    "/api/content",
+    "/api/content/:path*",
+    "/api/agents",
+    "/api/agents/:path*",
   ],
 };
