@@ -54,6 +54,7 @@ export const config = {
     "/api/teams/:path*",
     "/api/notifications",
     "/api/notifications/:path*",
+    "/api/upload",
     "/api/upload/:path*",
     "/api/settings/:path*",
     "/api/content",

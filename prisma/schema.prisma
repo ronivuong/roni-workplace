@@ -165,6 +165,15 @@ model Content {
   publishedUrl String?
   publishedAt  DateTime?
   scheduledAt  DateTime?
+  /// Media asset (video / image cover)
+  mediaUrl     String?
+  thumbnailUrl String?
+  mediaMime    String?
+  mediaSize    Int?
+  mediaDuration Float?   // seconds
+  mediaWidth   Int?
+  mediaHeight  Int?
+  aspectRatio  String?   // 9:16 | 16:9 | 1:1 | 4:5
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -176,6 +185,7 @@ model Content {
   @@index([authorId])
   @@index([teamId])
   @@index([status])
+  @@index([type])
 }
 
 /// Per-platform publish / schedule record (multi-channel)

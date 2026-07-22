@@ -20,7 +20,11 @@ export async function GET(req: NextRequest) {
       where: {
         ...(role === "AGENT" ? { authorId: session.user.id } : {}),
         ...(status ? { status } : {}),
-        ...(type ? { type } : {}),
+        ...(type
+          ? type === "video"
+            ? { type: { in: ["video", "script"] } }
+            : { type }
+          : {}),
         ...(teamId ? { teamId } : {}),
       },
       orderBy: { updatedAt: "desc" },

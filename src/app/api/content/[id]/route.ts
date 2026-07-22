@@ -77,6 +77,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (body.title !== undefined) data.title = String(body.title).trim();
     if (body.body !== undefined) data.body = body.body;
+    if (body.mediaUrl !== undefined) data.mediaUrl = body.mediaUrl;
+    if (body.thumbnailUrl !== undefined) data.thumbnailUrl = body.thumbnailUrl;
+    if (body.mediaMime !== undefined) data.mediaMime = body.mediaMime;
+    if (body.mediaSize !== undefined) data.mediaSize = Number(body.mediaSize);
+    if (body.mediaDuration !== undefined)
+      data.mediaDuration = Number(body.mediaDuration);
+    if (body.mediaWidth !== undefined) data.mediaWidth = Number(body.mediaWidth);
+    if (body.mediaHeight !== undefined)
+      data.mediaHeight = Number(body.mediaHeight);
+    if (body.aspectRatio !== undefined) data.aspectRatio = body.aspectRatio;
     // Accept structured editor payload
     if (body.structured && typeof body.structured === "object") {
       const s = body.structured as StructuredContent;
