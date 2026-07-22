@@ -1,3 +1,5 @@
+import type { SeoMeta } from "@/lib/seo";
+
 export type PlatformPreview =
   | "tiktok"
   | "instagram"
@@ -25,6 +27,9 @@ export type StructuredContent = {
   authorHandle?: string;
   coverEmoji?: string;
   coverGradient?: string;
+  /** Article / SEO workspace */
+  seo?: SeoMeta;
+  mode?: "social" | "article";
 };
 
 export function isStructuredContent(value: unknown): value is StructuredContent {

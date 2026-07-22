@@ -44,6 +44,7 @@ import { PlatformPreview } from "@/components/content/platform-preview";
 import { ContentEditor } from "@/components/content/content-editor";
 import { DistributePanel } from "@/components/content/distribute-panel";
 import { ScheduleCalendar } from "@/components/content/schedule-calendar";
+import { ArticleSeoWorkspace } from "@/components/content/article-seo-workspace";
 import { PlatformIcon } from "@/components/platforms/platform-icon";
 import { CONTENT_STATUS_LABELS } from "@/lib/constants";
 import {
@@ -54,6 +55,7 @@ import {
   serializeContent,
   type StructuredContent,
 } from "@/lib/content-formats";
+import { emptySeoMeta } from "@/lib/seo";
 import { formatDate, cn } from "@/lib/utils";
 import { isLeaderOrAbove } from "@/lib/rbac";
 
@@ -99,10 +101,33 @@ const PROMPT_EXAMPLES = [
 
 function emptyStructured(
   platform: string,
-  authorName?: string | null
+  authorName?: string | null,
+  mode: "social" | "article" = "social"
 ): StructuredContent {
+  if (mode === "article") {
+    return {
+      version: 1,
+      mode: "article",
+      platform: platform === "wordpress" || platform === "blog" ? platform : "wordpress",
+      type: "article",
+      title: "",
+      hook: "",
+      caption: "",
+      body: "",
+      hashtags: [],
+      cta: "",
+      authorName: authorName || "Roni Editorial",
+      authorHandle: "@roni.workplace",
+      coverEmoji: "✍️",
+      coverGradient: pickGradient("article"),
+      seo: emptySeoMeta({
+        platform: platform === "blog" ? "blog" : "wordpress",
+      }),
+    };
+  }
   return {
     version: 1,
+    mode: "social",
     platform,
     type:
       platform === "youtube" || platform === "tiktok"
@@ -130,6 +155,7 @@ export default function ContentStudioPage() {
   const leader = isLeaderOrAbove(session?.user?.role);
 
   const [mainTab, setMainTab] = useState("studio");
+  const [studioMode, setStudioMode] = useState<"social" | "article">("social");
   const [filter, setFilter] = useState("all");
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -201,13 +227,21 @@ export default function ContentStudioPage() {
     setDirty(true);
   }, []);
 
-  const newBlank = () => {
+  const newBlank = (mode?: "social" | "article") => {
+    const m = mode || studioMode;
     setContentId(null);
     setStatus("DRAFT");
     setPrompt("");
-    setStructured(emptyStructured(platform, session?.user?.name));
+    const p = m === "article" ? "wordpress" : platform;
+    if (m === "article") setPlatform("wordpress");
+    setStudioMode(m);
+    setStructured(emptyStructured(p, session?.user?.name, m));
     setDirty(false);
-    toast.message("Canvas trống — soạn tay hoặc dùng AI");
+    toast.message(
+      m === "article"
+        ? "Article SEO — điền brief hoặc viết tay"
+        : "Canvas trống — soạn tay hoặc dùng AI"
+    );
   };
 
   const loadContent = (c: Content) => {
@@ -216,11 +250,21 @@ export default function ContentStudioPage() {
       platform: c.platform,
       type: c.type,
     });
+    const isArticle =
+      s.mode === "article" ||
+      c.type === "article" ||
+      !!s.seo ||
+      c.platform === "wordpress" ||
+      c.platform === "blog";
     setContentId(c.id);
     setStatus(c.status);
-    setPlatform(c.platform || s.platform || "tiktok");
+    setPlatform(c.platform || s.platform || (isArticle ? "wordpress" : "tiktok"));
+    setStudioMode(isArticle ? "article" : "social");
     setStructured({
       ...s,
+      mode: isArticle ? "article" : "social",
+      type: isArticle ? "article" : s.type,
+      seo: s.seo || (isArticle ? emptySeoMeta() : undefined),
       authorName: s.authorName || session?.user?.name || "Roni Creator",
     });
     setDirty(false);
@@ -234,11 +278,22 @@ export default function ContentStudioPage() {
     }
     setSaving(true);
     try {
+      const plat =
+        studioMode === "article"
+          ? structured.seo?.platform === "blog"
+            ? "blog"
+            : structured.platform || "wordpress"
+          : platform;
       const payload = {
         title: structured.title,
-        type: structured.type,
-        platform,
-        structured: { ...structured, platform },
+        type: studioMode === "article" ? "article" : structured.type,
+        platform: plat,
+        structured: {
+          ...structured,
+          platform: plat,
+          mode: studioMode,
+          type: studioMode === "article" ? "article" : structured.type,
+        },
         status: status === "PUBLISHED" || status === "SCHEDULED" ? status : "DRAFT",
       };
 
@@ -255,9 +310,9 @@ export default function ContentStudioPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: structured.title,
-            body: serializeContent({ ...structured, platform }),
-            type: structured.type,
-            platform,
+            body: serializeContent(payload.structured),
+            type: payload.type,
+            platform: plat,
             status: "DRAFT",
           }),
         });
@@ -360,10 +415,40 @@ export default function ContentStudioPage() {
     <div className="space-y-4">
       <PageHeader
         title="AI Content Studio"
-        description="AI tạo nháp → chỉnh trên editor trực quan → đăng / lên lịch nhiều nền tảng."
+        description="Social + Article SEO: brief → AI → editor → preview → multi-publish."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={newBlank}>
+            <div className="flex rounded-xl border border-slate-200 bg-white p-0.5">
+              <Button
+                size="sm"
+                variant={studioMode === "social" ? "default" : "ghost"}
+                className="h-8"
+                onClick={() => {
+                  if (dirty && !confirm("Đổi mode có thể mất chỉnh sửa chưa lưu. Tiếp tục?"))
+                    return;
+                  setStudioMode("social");
+                  setPlatform("tiktok");
+                  setStructured(emptyStructured("tiktok", session?.user?.name, "social"));
+                  setContentId(null);
+                  setDirty(false);
+                }}
+              >
+                Social
+              </Button>
+              <Button
+                size="sm"
+                variant={studioMode === "article" ? "default" : "ghost"}
+                className="h-8"
+                onClick={() => {
+                  if (dirty && !confirm("Đổi mode có thể mất chỉnh sửa chưa lưu. Tiếp tục?"))
+                    return;
+                  newBlank("article");
+                }}
+              >
+                Article SEO
+              </Button>
+            </div>
+            <Button variant="outline" onClick={() => newBlank(studioMode)}>
               <PenLine className="h-4 w-4" />
               Soạn tay mới
             </Button>
@@ -392,6 +477,81 @@ export default function ContentStudioPage() {
 
         {/* ========== STUDIO ========== */}
         <TabsContent value="studio" className="mt-4 space-y-4">
+          {studioMode === "article" ? (
+            <div className="space-y-4">
+              <ArticleSeoWorkspace
+                structured={structured}
+                onChange={(next) => {
+                  setStructured(next);
+                  setDirty(true);
+                  if (next.platform) setPlatform(next.platform);
+                }}
+                contentId={contentId}
+                saving={saving}
+                onContentCreated={(id) => {
+                  setContentId(id);
+                  setStatus("DRAFT");
+                  setDirty(false);
+                  qc.invalidateQueries({ queryKey: ["contents"] });
+                }}
+                onSave={async () => {
+                  await saveDraft();
+                }}
+              />
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="flex flex-wrap gap-2">
+                  {contentId && status === "DRAFT" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        ensureSavedThen((id) => setContentStatus(id, "IN_REVIEW"))
+                      }
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      Gửi duyệt
+                    </Button>
+                  )}
+                  {leader && contentId && status === "IN_REVIEW" && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => setContentStatus(contentId, "APPROVED")}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        Duyệt
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setContentStatus(contentId, "REJECTED")}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Từ chối
+                      </Button>
+                    </>
+                  )}
+                </div>
+                <DistributePanel
+                  contentId={contentId}
+                  platforms={platformOptions}
+                  onEnsureSaved={async () => {
+                    if (!structured.title.trim()) {
+                      toast.error("Nhập tiêu đề H1");
+                      return null;
+                    }
+                    if (dirty || !contentId) return saveDraft({ silent: true });
+                    return contentId;
+                  }}
+                  onDone={() => {
+                    qc.invalidateQueries({ queryKey: ["contents"] });
+                    qc.invalidateQueries({ queryKey: ["content-calendar"] });
+                    qc.invalidateQueries({ queryKey: ["notifications"] });
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
           <div className="grid gap-4 xl:grid-cols-12">
             {/* Left column: AI + Editor + Distribute */}
             <div className="xl:col-span-5 space-y-4">
@@ -659,6 +819,7 @@ export default function ContentStudioPage() {
               </Card>
             </div>
           </div>
+          )}
         </TabsContent>
 
         {/* ========== LIBRARY ========== */}
